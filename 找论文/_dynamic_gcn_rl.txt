@@ -1,0 +1,213 @@
+IEEE INTERNET OF THINGS JOURNAL, VOL. 9, NO. 12, JUNE 15, 2022                                                                                              9389
+
+
+
+
+   Dynamic Virtual Network Embedding Algorithm
+   Based on Graph Convolution Neural Network and
+              Reinforcement Learning
+      Peiying Zhang , Chao Wang , Neeraj Kumar , Senior Member, IEEE, Weishan Zhang , and Lei Liu
+
+
+
+   Abstract—Network virtualization (NV) is a technology with                                                I. I NTRODUCTION
+broad application prospects. Virtual network embedding (VNE)
+                                                                                       HE FACT that the traditional Internet architecture is
+is the core orientation of VN, which aims to provide more flex-
+ible underlying physical resource allocation for user function
+requests. The classical VNE problem is usually solved by the
+                                                                                 T     becoming rigid has promoted the development of future
+                                                                                 network technologies [1]. Network virtualization (NV) will
+heuristic method, but this method often limits the flexibility of the            realize the effective management of the next-generation
+algorithm and ignores the time limit. In addition, the partition                 Internet and become an important part of the future network
+autonomy of physical domain and the dynamic characteristics
+of virtual network request (VNR) also increase the difficulty of
+                                                                                 architecture [2], [3]. NV mainly realizes the decoupling of
+VNE. This article proposed a new type of VNE algorithm, which                    network services, functions, and specific underlying hard-
+applied reinforcement learning (RL) and graph neural network                     ware, which greatly improves the flexibility and scalability
+(GNN) theory to the algorithm, especially the combination of                     of the underlying network architecture. NV involves two main
+graph convolutional neural network (GCNN) and RL algorithm.                      roles: 1) infrastructure provider (InP) and 2) service provider
+Based on a self-defined fitness matrix and fitness value, we set up
+the objective function of the algorithm implementation, realized
+                                                                                 (SP) [4]. The process that the two cooperate to allocate phys-
+an efficient dynamic VNE algorithm, and effectively reduced the                  ical network resources for virtual network requests (VNRs)
+degree of resource fragmentation. Finally, we used comparison                    is called virtual network embedding (VNE). The ideal result
+algorithms to evaluate the proposed method. Simulation exper-                    of VNE is to reasonably schedule the underlying network
+iments verified that the dynamic VNE algorithm based on RL                       resources to receive as many VNRs as possible, improve
+and GCNN has good basic VNE characteristics. By changing the
+resource attributes of physical network and virtual network, it
+                                                                                 the acceptance rate of virtual network, realize load bal-
+can be proved that the algorithm has good flexibility.                           ancing, maximize resource consumption revenue and reduce
+                                                                                 costs [5], [6].
+   Index Terms—Fitness matrix, graph convolution neu-
+ral network, reinforcement learning (RL), virtual network                           VNE is a typical NP-hard problem, which determines that
+embedding (VNE).                                                                 the VNE problem can only obtain an approximate optimal
+                                                                                 solution instead of an optimal solution [7], [8]. Usually, the
+                                                                                 heuristic method is used to solve the VNE process, or VNE
+                                                                                 is modeled as a combinatorial optimization problem, and then
+                                                                                 (integer) linear programming is used to solve it. The above
+   Manuscript received June 8, 2021; accepted June 29, 2021. Date of pub-        methods are traditional solutions to the VNE problem, which
+lication July 6, 2021; date of current version June 7, 2022. This work           play a positive role in a certain social application and technical
+was supported in part by the National Key Research and Development
+Program of China under Grant 2018YFE0116700; in part by the National             background. The analysis shows that there are several common
+Natural Science Foundation of China under Grant 62001357 and Grant               disadvantages in traditional VNE solutions.
+62072469; in part by the Major Scientific and Technological Projects of             1) The constraints and optimization objectives of VNE are
+CNPC under Grant ZD2019-183-006; in part by the Guangdong Basic and
+Applied Basic Research Foundation under Grant 2020A1515110496 and Grant                 made manually. Unnatural conditional control will dam-
+2020A1515110079; and in part by the Shandong Provincial Natural Science                 age the robustness and flexibility of the VNE algorithm.
+Foundation, China, under Grant ZR2020MF006 and Grant ZR2019MF049.                   2) The VNE algorithm with differentiated Quality of
+(Corresponding authors: Neeraj Kumar; Peiying Zhang; Weishan Zhang.)
+   Peiying Zhang, Chao Wang, and Weishan Zhang are with the College                     Service (QoS) may have the high real-time requirement,
+of Computer Science and Technology, China University of Petroleum                       so it is time sensitive. Existing algorithms usually ignore
+(East China), Qingdao 266580, China (e-mail: zhangpeiying@upc.edu.cn;                   this problem.
+wangch_upc@qq.com; zhangws@upc.edu.cn).
+   Neeraj Kumar is with the Department of Computer Science and                      3) Ignore the dynamic characteristics of VNE, i.e., dur-
+Engineering, Thapar Institute of Engineering and Technology, Deemed                     ing the VNR cycle, the resource configuration of virtual
+to be University, Patiala 147004, India, also with the Department of                    nodes and links, the virtual topological structure, and the
+Computer Science and Information Engineering, Asia University, Taichung
+41354, Taiwan, and also with the School of Computer Science, University                 number of physical network resources are all in dynamic
+of Petroleum and Energy Studies, Dehradun 248007, India (e-mail:                        changes.
+neeraj.kumar@thapar.edu).                                                           The application of machine learning (ML) algorithms in
+   Lei Liu is with the State Key Laboratory of Integrated Services Networks,
+Xidian University, Xi’an 710071, China (e-mail: leiliu@xidian.edu.cn).           VNE has achieved great success [9], [10]. Through the effi-
+   Digital Object Identifier 10.1109/JIOT.2021.3095094                           cient interaction between learning agent and environment,
+
+                      2327-4662 
+                                c 2021 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                    See https://www.ieee.org/publications/rights/index.html for more information.
+      Authorized licensed use limited to: China University of Petroleum. Downloaded on June 28,2026 at 03:03:38 UTC from IEEE Xplore. Restrictions apply.
+9390                                                                                      IEEE INTERNET OF THINGS JOURNAL, VOL. 9, NO. 12, JUNE 15, 2022
+
+
+
+reinforcement learning (RL) has excellent decision-making                         A. VNE Solution Based on Heuristic
+capabilities. At each time step t, the intelligent agent inter-                      The more classic is the node-link two-stage coordi-
+acts with the environment to obtain the environment state st .                    nated and embedded ViNEYard algorithm proposed by
+After that, the agent will apply an action at to the environ-                     Chowdhury et al. [14]. This algorithm modeled VNE as a
+ment to transfer the state of the environment to st+1 , and at                    mixed-integer linear programming problem, and then imple-
+the same time, the environment will feedback to the agent a                       mented D-ViNE and R-ViNE using deterministic and random
+reward rt . The goal of RL is to help the agent maximize the                      methods, respectively. The results showed that these algo-
+reward signal. The detailed application of RL will be intro-                      rithms can effectively improve the revenue of VNE. Increasing
+duced below. The VNE algorithm based on RL has been well                          the VNE revenue or reducing the embedding cost is an impor-
+experimented, so RL can be applied to our work.                                   tant goal of the VNE algorithm. Based on the Markov random
+   Problems such as node ordering and pattern matching can all                    walk model theory, Cheng et al. [15] sorted the importance of
+be simplified by graph-related theories and techniques. Graph                     network nodes according to network topology attributes, and
+neural network (GNN) is a new type of ML model architecture                       proposed two representative VNE algorithms based on node
+that can aggregate graph features (degrees, distance to specific                  sorting. According to whether the virtual link was divided
+nodes, node connectivity, etc.) on nodes [11]. The model can                      into paths, it was decided to use the multicommodity flow
+be used to cluster nodes and links according to the physi-                        algorithm or the breadth-first search algorithm to perform the
+cal nodes and physical links attribute characteristics (CPU,                      virtual link mapping process. These two algorithms had effec-
+storage, bandwidth, delay, etc.) and search for the best VNE                      tively improved the long-term average revenue, and the method
+strategy by intelligent agent training. Graph convolution neu-                    based on node sorting has also become a typical and popu-
+ral network (GCNN) is a natural generalization form of GNN,                       lar method in VNE. Zhang et al. [16] first considered the
+which is highly suitable for graph structures of any topologi-                    VNE algorithm with multidimensional resource constraints of
+cal form [12]. Therefore, the organic combination of VNE and                      computing, network and storage, and proposed two heuristic
+GCNN has a good prerequisite. To this end, the main work of                       algorithms NRM-VNE and RCR-VNE as baseline algorithms.
+this article is as follows.                                                          Since VNE can be modeled as a search problem in a larger
+   1) A VNE algorithm based on RL and GCNN is proposed.                           3-D space, the metaheuristic method can be used as an impor-
+       In particular, GCNN is used to automatically extract                       tant means to solve VNE. The metaheuristic algorithm is an
+       the features of underlying network, which optimizes the                    improvement of heuristic algorithm, which adds local search
+       selection of VNE decision.                                                 on the basis of heuristic algorithm [17]. Particle swarm algo-
+   2) We notice the dynamic characteristics of VNE process,                       rithm (PSO) is a metaheuristic algorithm commonly used to
+       and adopt a dynamic VNE method based on fitness value                      solve VNE [18]–[20]. Different VNE strategies can be used
+       to deal with the changing virtual network topology and                     as particles to perform a global optimal search based on the
+       resource attributes.                                                       objective function set in advance.
+   3) We conducted a large number of simulation experiments                          As we mentioned earlier, the heuristic method of manually
+       and compared the typical indicators of VNE with other                      formulating constraints and features for the VNE algorithm
+       algorithms to verify the effectiveness of the algorithm.                   greatly limits the flexibility of the VNE algorithm. Moreover,
+       In addition, the flexibility of the algorithm is verified by               with the rapid expansion of physical network and user scale,
+       changing the attribute parameter distribution of physical                  the global search strategy efficiency of heuristic algorithm
+       network and VNRs.                                                          gradually decreases, and there is a big gap between the time
+   The remainder of this article is arranged as follows.                          performance and the latest VNE algorithm.
+Section II introduces the related work of VNE. Section III
+gives the necessary network model to solve the VNE problem
+and describes the related technical problems. Section IV for-                     B. VNE Solution Based on ML
+mulates the related problems of VNE. Section V introduces the                        With the successful practice of ML algorithms in real life,
+design and implementation details of the algorithm. Section VI                    scholars began to explore and tried to apply ML algorithms
+verifies and analyzes the performance of the algorithm through                    in VNE, among which the RL algorithm was the most rep-
+simulation experiments. In the last section, we summarize this                    resentative [21]. Haeri and Trajkovic [22] modeled VNE as
+whole article.                                                                    a Markov decision process, and then used the Monte Carlo
+                                                                                  search tree (MCST) algorithm to implement the node map-
+                                                                                  ping process. In the stage of virtual link embedding, the
+                                                                                  authors used the multicommodity flow algorithm to implement
+                          II. R ELATED W ORK                                      the MaVEn-M algorithm, and the shortest path algorithm to
+   The heuristic method is the traditional method for solv-                       implement the MaVEn-S algorithm. The profitability and prof-
+ing the VNE process, including the metaheuristic algorithm,                       itability of InP illustrated the effectiveness of the algorithm. It
+mathematical optimization, and so on. VNE solutions based                         cannot be ignored that the MCST algorithm should perform a
+on ML often use algorithms or models, such as deep learn-                         complete VNE process every time the virtual nodes are embed-
+ing (DL), RL or graph theory, which has gradually become                          ded, which makes the algorithm’s time cost higher. Q-learning
+the mainstream method to solve NP-hard problems, such as                          is another commonly used RL model. Yuan et al. [23] imple-
+VNE [13].                                                                         mented the VNE algorithm based on this model to find the
+
+       Authorized licensed use limited to: China University of Petroleum. Downloaded on June 28,2026 at 03:03:38 UTC from IEEE Xplore. Restrictions apply.
+ZHANG et al.: DYNAMIC VIRTUAL NETWORK EMBEDDING ALGORITHM                                                                                                   9391
+
+
+                                                                                                                 TABLE I
+optimal VNE strategy for RL agent, in which the Q-matrix                                              N OTATION OF N ETWORK M ODEL
+and the Q-table played an important role. One problem with
+this algorithm is that the extraction of virtual network fea-
+tures is done manually. The efficiency of the algorithm will
+decrease when the VNR scale is large or the structure is com-
+plex. Yao et al. [24] implemented a VNE algorithm based
+on single-layer policy network. According to the historical
+embedded data of virtual network, RL agent used strategy
+gradient descent to find the optimal embedding strategy.
+   Dolati et al. [25] and Wang et al. [26] also combined DL and
+RL, and their deep reinforcement learning (DRL)-based VNE
+algorithm also provided new ideas for solving this problem.
+   In the field of ML, the VNE algorithm based on graph the-
+ory has gradually come into people’s view. Habibi et al. [27]
+creatively combined GNN and VNE, and then proposed the
+GraphViNE algorithm based on graph automatic encoder. The
+biggest feature of this algorithm is that servers with similar
+                                                                                as physical node attributes and bandwidth resources as phys-
+resources are clustered, which ultimately effectively reduces
+                                                                                ical link attributes, namely, AN = {cnp , cnp , . . . , cnp } and
+the running time of the algorithm. Yan et al. [28] paid                                                                            1    2          |N P |
+attention to the time constraint of VNE and applied GNN,                        AL = {blp , blp , . . . , blp }, where |N P | and |LP | represent the
+                                                                                            1    2          |LP |
+especially GCNN, to VNE. It was worth noting that the authors                   total number of physical nodes and physical links, respectively.
+proposed a parallel framework and multiobjective reward func-                      Similarly, virtual network is regarded as a weighted undi-
+tion based on DRL, which took into account VNE revenue,                         rected graph GVi = {N V , LV , RN , RL }, and GVi indicates that
+acceptance rate, and load balance. Zhao and Parhami [29]                        this is the ith virtual network. N V represents the set of all
+and Ghazar and Samaan [30], respectively, proposed the VNE                      virtual nodes, and LV represents the set of all virtual links.
+algorithm based on graph feature space alignment and VNE                        RN and RL , respectively, represent the resource requirement
+algorithm based on subgraph matching. The former mainly                         attribute set of virtual node and virtual link, where N V =
+associated physical nodes with virtual nodes, while the lat-                    {cnv1 , cnv2 , . . . , cnv V } represents the CPU resource requirement
+                                                                                                     |N |
+ter utilized a hierarchical physical management architecture.
+                                                                                of virtual node, and LV = {bbv1 , bbv2 , . . . , bbv V } represents the
+Both of them are good applications of graph theory in the                                                                              |L |
+VNE problem.                                                                    bandwidth resource requirement of virtual link. |N V | and |LV |,
+   The above research does not support the embedding of                         respectively, represent the number of virtual nodes and virtual
+dynamic virtual networks well, which will greatly affect the                    links in the virtual network.
+utilization of resources. Dehury and Sahoo [31] focused on
+the dynamic characteristics of virtual network topology, and                    B. VNE Model and Description
+proposed a dynamic VNE algorithm based on fitness value.                           Based on the physical network and virtual network model,
+The function of fitness value was to mark the utilization degree                the VNR can be expressed as VNRi = (GVi , ta , te ), where ta
+of physical resources. At the same time, the authors used                       represents the time when the VNR arrives, and te represents the
+the method of studying part of physical servers to replace                      time when the VNR leaves. The VNE process can be modeled
+the method of studying all physical servers, which effectively                                                                    
+                                                                                as GVi (N V , LV ) ↑ GP (N P , LP ), where GP (N P , LP ) repre-
+improved the efficiency of the algorithm. In addition, [32]                     sents a partial subgraph of physical network. Thus, a complete
+and [33] are also excellent representatives of the dynamic VNE                  VNE process includes two stages: 1) node mapping and 2) link
+algorithm. But the analysis finds that they do not fully apply                  mapping. Fig. 1 gives a visual representation of the network
+ML methods.                                                                     topology, and shows the result of two VNRs embedded in the
+                                                                                physical network. We mark the CPU resource demand and
+                                                                                bandwidth resource demand, respectively, next to the network
+   III. N ETWORK M ODEL AND P ROBLEM D ESCRIPTION
+                                                                                node and link. The target node and link should have sufficient
+  For easy viewing, we summarize the commonly used                              resources to carry them.
+network representation symbols in Table I.
+                                                                                C. Dynamic VNE
+A. Physical Network and VNR Modeling                                               Changes in the number of network users or fluctuations
+   Physical network can be regarded as a weighted undirected                    in workload will cause the structural change of the virtual
+graph GP = {N P , LP , AN , AL }. N P represents the node set                   network. The most intuitive impact of changes in the num-
+composed of all underlying physical nodes, and LP repre-                        ber of users is the changes in virtual nodes and links, i.e.,
+sents the link set composed of all physical links. AN and                       changes in structural configuration. Workload fluctuations usu-
+AL represent physical node attribute set and physical link                      ally change the number of resource requirements of virtual
+attribute set, respectively. We mainly regard CPU resources                     nodes or links, i.e., the resource configuration changes. The
+
+     Authorized licensed use limited to: China University of Petroleum. Downloaded on June 28,2026 at 03:03:38 UTC from IEEE Xplore. Restrictions apply.
+

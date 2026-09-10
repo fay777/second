@@ -1,0 +1,183 @@
+6316                                                                                IEEE TRANSACTIONS ON COMMUNICATIONS, VOL. 72, NO. 10, OCTOBER 2024
+
+
+
+
+                  ReViNE: Reinforcement Learning-Based
+                      Virtual Network Embedding in
+                       Satellite-Terrestrial Networks
+  Ilora Maity , Member, IEEE, Thang X. Vu , Senior Member, IEEE, and Symeon Chatzinotas , Fellow, IEEE
+
+
+   Abstract— This paper addresses the virtual network embed-                         VNE involves mapping virtual network requests (VNRs) to
+ding (VNE) problem in integrated satellite-terrestrial networks                      the substrate network [2]. A VNR consists of one or more
+(STNs). VNE consists of mapping virtual network functions                            VNFs arranged in a serial processing order, referred to as a
+(VNFs) in a service function chain (SFC) to physical nodes and
+mapping virtual links connecting the VNFs to physical links.                         service function chain (SFC) [3]. VNE is a two-step process –
+Compared to terrestrial networks, VNE in STNs is challenging                         (1) mapping each VNF to a physical node in the substrate
+due to the movement of the non-geostationary orbit (NGSO)                            network for processing and (2) defining a subgraph over the
+satellites and limited onboard processing resources. A static VNE                    network topology, which refers to mapping the virtual links
+strategy fails to efficiently address the diverse requirements of                    connecting each pair of VNFs to physical links [4]. VNE relies
+heterogeneous service requests in such a highly dynamic topology.
+In addition, existing solutions do not consider the capacity                         on network function virtualization (NFV) technology [5] that
+limitation and connectivity duration of inter-satellite links (ISLs)                 dissociates network functions from hardware infrastructure and
+and ground-to-satellite links, which are essential parameters for                    deploys virtual network functions (VNFs) on network nodes
+deploying a VNE strategy in STNs. This work proposes a heuris-                       for execution [3], [6]. Integrating software-defined networking
+tic solution and reinforcement learning (RL)-based improved
+                                                                                     (SDN) with STN also eases request-specific management by
+solution for the VNE scheme that can dynamically modify the
+existing VNF deployment strategy to maximize the average                             separating the control and data planes [7]. However, inappro-
+service acceptance rate and revenue. The RL agent selects                            priate deployment of VNFs may increase service completion
+a suitable VNE strategy for each service request considering                         duration and reduce the service acceptance ratio.
+the time-varying network topology and service’s requirements.
+The proposed scheme increases the service acceptance ratio
+by 19.95% compared to the benchmark TS-MAPSCH.                                       A. Motivation
+  Index Terms— Software-defined networking (SDN), virtual net-                          The topology of STN is highly dynamic due to the
+work embedding (VNE), reinforcement learning, non-terrestrial                        movement of non-geostationary orbit (NGSO) satellites.
+networks, satellite constellation.
+                                                                                     Accordingly, in STN, the link connectivity and quality change
+                                                                                     with time. This significantly impacts VNE, the primary
+                           I. I NTRODUCTION                                          mechanism for realizing SDN/NFV-based service provisioning
+
+T     HE next-generation satellite-terrestrial network (STN)
+      aims to support services with diverse objectives [1]. How-
+ever, traditional STN architectures are not sufficiently flexible
+                                                                                     in STN. A fixed VNE strategy is sufficient for terrestrial
+                                                                                     networks where the link connectivity is static over time.
+                                                                                     However, in STN, a fixed VNE strategy [5], [8] underperforms
+to address these heterogeneous services’ specific quality of                         for several reasons. For example, the mapped physical link
+service (QoS) demands. Virtual network embedding (VNE) is                            may become unavailable when a VNF needs to send the
+a recent paradigm that can add flexibility to STNs by defining                       processed result to the next VNF in the SFC or the destination
+multiple virtual networks over the same physical infrastructure.                     ground station. Moreover, the capacity of a mapped physical
+                                                                                     link may fluctuate due to time-varying topology. Therefore,
+  Manuscript received 5 July 2023; revised 2 February 2024; accepted 7 May
+2024. Date of publication 14 May 2024; date of current version 18 October            for STN, dynamic VNE is necessary where an existing VNE
+2024. This work was supported in whole, or in part, by the Luxembourg                strategy is modified, taking into account the network statistics
+National Research Fund, via project ASWELL (ref. C19/IS/13718904) and                and traffic demand. In this context, it is worth mentioning
+RUTINE (ref. C22/IS/17220888). For the purpose of open access, and in
+fulfillment of the obligations arising from the grant agreement, the author has      that several factors, such as link connectivity and capacity,
+applied a creative commons attribution 4.0 international (CC BY 4.0) license         and completion time requirements of heterogeneous VNRs,
+to any author accepted manuscript version arising from this submission.              influence the selection of a dynamic VNE strategy. However,
+An earlier version of this paper was presented at the 2022 IEEE Wireless
+Communications and Networking Conference (IEEE WCNC), Austin, TX,                    existing VNE solutions in STN do not consider these factors
+USA, April 2022 [DOI: 10.1109/WCNC51071.2022.9771560]. The associate                 jointly [1], [9].
+editor coordinating the review of this article and approving it for publication         Figure 1 shows a motivational scenario with a substrate
+was M. C. Gursoy. (Corresponding author: Ilora Maity.)
+  The authors are with the Interdisciplinary Centre for Security, Reliability and    network consisting of three NGSO satellites (s1 , s2 , and s3 )
+Trust (SnT), University of Luxembourg, 4365 Esch-sur-Alzette, Luxembourg             and two ground stations (g1 and g2 ). The satellites have
+(e-mail: ilora.maity@uni.lu; thang.vu@uni.lu; symeon.chatzinotas@uni.lu).            onboard computing resources [10]. At topology snapshot 1,
+  Color versions of one or more figures in this article are available at
+https://doi.org/10.1109/TCOMM.2024.3400911.                                          a VNR with a single VNF is requested at g1 whose destination
+  Digital Object Identifier 10.1109/TCOMM.2024.3400911                               is g2 . The routing path g1 → s1 → s2 → g2 is selected
+                               © 2024 The Authors. This work is licensed under a Creative Commons Attribution 4.0 License.
+                                          For more information, see https://creativecommons.org/licenses/by/4.0/
+MAITY et al.: ReViNE: RL-BASED VNE IN STNs                                                                                    6317
+
+
+
+
+Fig. 1.   Motivating scenario.
+
+
+
+for the VNR, and the VNF is mapped to s2 . Let us assume           allocation, improved network performance, and enhanced scal-
+that the processing of the VNF is incomplete in the topology       ability in STNs, ultimately contributing to the overall quality
+snapshot 2. From Figure 1, we see that in the topology             of service and user experience.
+snapshot 2, the link between s2 and g2 is unavailable. This
+may happen if s2 moves out of the visibility range of g2           B. Contribution
+or the link cannot accommodate the VNR, which requires a              In this work, we propose an RL-based dynamic VNE
+certain data rate. In this case, the routing path of the VNR       approach for STNs. The proposed solution, ReViNE, consid-
+is updated to g1 → s1 → s2 → s3 → g2 . This routing path           ers time-varying topology with NGSO satellites, processing
+update incurs additional latency for the VNR. However, from        resource limitation on satellite nodes, and capacity limitation
+Figure 1, we observe that the route g1 → s1 → s3 → g2 is           of the substrate network as the parameters for VNE in STN.
+more stable than the route g1 → s1 → s2 → g2 . Therefore,          The proposed solution also facilitates VNF remapping to
+mapping the VNF to s3 and routing the VNR through the path         address the topology dynamics of STN. The primary contri-
+g1 → s1 → s3 → g2 is a feasible VNE strategy. This scenario        butions of this work are summarized as follows:
+intensifies in the presence the multiple heterogeneous VNRs           • We formulate the VNE problem based on the link and
+with one or multiple VNFs. Motivated by this scenario, in this          capacity availability of the substrate network and the
+work, we consider link connectivity and stability as the metric         processing time and data rate requirement of the VNRs.
+for selecting the VNE strategy in STN.                                • We design a linear relaxation-based greedy heuristic
+   The motivation scenario presented above is a simplistic              algorithm to decide the VNE strategy for new and existing
+example. However, in real networks, the scenario is complex             VNRs.
+due to the many satellites and several VNRs of different              • We design an RL-based VNE solution that adapts to
+types. Traditional approaches for VNE rely on heuristic algo-           the changing network conditions. The formulated reward
+rithms that often struggle to handle such networks’ complex             function prioritizes the path with high revenue, low
+and dynamic nature. On the other hand, machine learning                 VNR deployment cost, high link stability, and high link
+(ML) techniques, specifically reinforcement learning (RL),              capacity.
+have demonstrated their capacity to adapt and optimize                • Extensive simulation results show the effectiveness of
+decision-making processes through environmental interac-                ReViNE in terms of request acceptance ratio and service
+tions [11], [12] [13], [14]. In the case of VNE, the training of        revenue.
+RL algorithms can occur either online, through a real system,
+or offline, using a generative emulator representing the real      C. Paper Organization
+environment. By leveraging RL algorithms, the VNE process            The remainder of the paper is organized as follows.
+can be enhanced by enabling intelligent, data-driven decision-     Section II discusses the literature on VNE in terrestrial and
+making that adapts to the evolving network conditions and          non-terrestrial networks. Section III describes the system
+requirements. A single controller or a group of controllers        model in terms of the physical network model, virtual network
+can handle traffic engineering. These controllers serve as         model, and cost model. Section IV formulates the problem and
+the operational entity where the RL-learned policies are           presents the proposed heuristic solution and the RL frame-
+applied during network operation. Using RL-learned policies        work. Section V evaluates the performance of the proposed
+at the controller level allows efficient and effective resource    scheme. Finally, Section VI concludes the paper.
+6318                                                               IEEE TRANSACTIONS ON COMMUNICATIONS, VOL. 72, NO. 10, OCTOBER 2024
+
+
+
+                     II. R ELATED W ORK                             consider the effects of changes in link properties for a dynamic
+   In this section, we discuss recent works on VNE in both          network topology like satellite networks. This method also
+terrestrial networks and non-terrestrial networks.                  does not contemplate the rate constraints of physical links.
+                                                                    Yuan et al. [17] proposed a greedy algorithm for joint VNF
+                                                                    placement and routing in STNs aiming to minimize the
+A. VNE in Terrestrial Networks
+                                                                    average E2E service latency. This approach approximates the
+   The allocation of resources to VNF and mapping VNFs to           dynamics of STN topology with a time-evolving graph (TEG).
+physical nodes are the main topics of existing works relating to    However, this work does not consider VNF deployment costs,
+VNE in terrestrial networks. A Deep Reinforcement Learning          including the VNF remapping overhead. Yang et al. [18]
+(DRL) model for the dynamic scaling of VNF resources was            also exploit TEG for joint VNF placement and flow routing
+developed by Jalodia et al. [3]. Additionally, a Graph Neural       in space information networks. This work considers a full
+Network (GNN) model was used in this study to quantify              cooperation VNF deployment scheme where the same VNF
+topological dependencies. Alhussein et al. [5] proposed a           can be deployed at multiple nodes accessible by each VNR.
+heuristic method for multicast routing and VNF mapping,             Therefore, this work aims to maximize the network flow
+which prioritizes service requests based on the request size        by balancing the coordination overhead from deploying the
+and provisioning cost. In [15], resilient VNF placement was         same VNF at multiple nodes. Yue et al. [19] investigate VNF
+investigated to lessen the number of SFC requests impacted          placement problem in 6G NTN. The authors formulated the
+when a physical node fails. Liu et al. [8] designed heuristic       VNF placement problem as an optimal matching problem and
+algorithms for dynamic VNF placement and routing, consider-         proposed a Linear Programming (LP)-based approach to min-
+ing resource and QoS constraints in terrestrial networks. The       imize the distance between the weighted graphs representing
+Dynamical VNF Placement and Routing Problem (DVPRP)                 the SFC requests and the physical network. Subsequently,
+and the Delay, packet Loss, and Jitter Aware Dynamical              this work designs a Hungarian-based algorithm for SFC
+VNF Placement and Routing Problem (DLJA-DVPRP) are two              mapping, considering the delay and resource requirements of
+optimization problems were developed therein. To meet the           each SFC.
+rule space’s capacity, resource, and rate constraints, DVPRP
+seeks to minimize the total cost of links and nodes in the
+routing path of an SFC request and the cost of VNF deploy-          C. Learning-Based VNE
+ment along the path. DLJA-DVPRP also considers additional              Some current works use AI for resource management based
+restrictions such as end-to-end (E2E) delay, jitter, and packet     on VNF mapping. These studies take into account terrestrial
+loss.                                                               networks, though. Deep learning is used, for instance, in [20]
+                                                                    to map VNFs and allocate processing resources to the VNFs.
+B. VNE in Non-Terrestrial Networks                                  The time-varying nature of the traffic load is taken into account
+   Several recent works on VNE have considered SDN/NFV-             in this work. Another study [21] uses DRL actor-critic archi-
+enabled non-terrestrial networks (NTNs). The authors of [16]        tecture to allocate processing and storage resources to VNFs
+put forth a framework with a topology awareness module to           for 5G terrestrial networks. The authors first develop a Markov
+track changes to the network topology and link status in the        decision process (MDP) for dynamic resource allocation. The
+Space-Ground Integrated Network (SGIN). The best routing            deployed VNFs are then online resource-allocated by a DRL-
+strategy was then determined using a DRL model based on             based algorithm following their dynamic resource needs. Also,
+the most recent topology information. A reconfigurable VNF          DRL is used in related work [22] to distribute data center (DC)
+embedding strategy was presented by Wang et al. [1] to maxi-        resources among VNFs.
+mize the number of service requests that can be accommodated           The analysis of the existing literature reveals that, except
+while minimizing computation and communication costs. Due           for the strategy suggested in [9], most works concentrate
+to the higher resource availability in the ground network,          on static VNE. Our work considers dynamic VNF mapping,
+it is preferred in this approach over the aerial network.           where the current strategy changes depending on the situation,
+However, this work does not consider the readjustment of            similar to [9]. Unlike the existing literature, our work considers
+the current VNF mapping and dynamic changes in network              additional restrictions on the strength and stability of physical
+conditions. Moreover, if the node has sufficient resources, this    links, such as the duration of link availability and capacity.
+approach assigns all VNFs for a service request to that node.       We also consider an NGSO constellation as the substrate
+In a real-world scenario, each node can process VNFs of a           network, where the availability of multiple E2E routes adds
+particular service type, such as [9]. The work of Li et al. [9]     complexity to the VNE process, which is relevant in the real-
+emphasizes the need for dynamic adjustment of VNF mapping           world scenario. Moreover, incorporating an RL-based solution
+and scheduling strategy to handle a range of Internet of Vehi-      adds a layer of adaptability to the VNE scheme. The RL
+cle (IoV) service demands in a Space-Air-Ground Integrated          agent dynamically selects a suitable VNE strategy for each
+Network (SAGIN). The authors addressed the E2E delay                VNR, considering (1) VNR-specific parameters such as source
+requirement of recently received service requests by propos-        and destination nodes, revenue, latency requirements, and
+ing a Tabu search-based VNF remapping and rescheduling              deployment cost and (2) network-specific parameters such as
+(TS-MAPSCH) algorithm that modifies the current VNF map-            available E2E paths, and stability and capacity of the links on
+ping and scheduling strategy. This approach does not explicitly     each path.
+

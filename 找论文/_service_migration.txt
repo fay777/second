@@ -1,0 +1,262 @@
+                                                              Computer Networks 250 (2024) 110553
+
+
+                                                            Contents lists available at ScienceDirect
+
+
+                                                               Computer Networks
+                                                   journal homepage: www.elsevier.com/locate/comnet
+
+
+
+
+Exploring the effectiveness of service migration strategies for virtual network
+embedding
+Federico Giarrè, Yassine Hadjadj-Aoul ∗
+Univ Rennes, Inria, CNRS, IRISA, Rennes, France
+
+
+
+ARTICLE               INFO                          ABSTRACT
+
+Keywords:                                           Network slicing, a key component of post-5G networks, has brought virtual network embedding (VNE) to the
+Network slicing                                     forefront of networking research. However, existing VNE approaches are limited by their consideration of static
+Virtual network embedding                           network topologies, failing to account for the dynamic nature of real-world networks. This limitation becomes
+Service migration
+                                                    particularly problematic in the face of link failures or topology modifications, rendering these approaches
+Reinforcement learning
+                                                    ineffective. To address this, we propose a new service placement strategy that remains effective even when
+Network robustness
+                                                    the network topology changes. Furthermore, we introduce several service migration strategies and thoroughly
+                                                    investigate their effectiveness. Our results demonstrate the adaptability of our proposed strategy, which
+                                                    leverages graph neural networks, in handling link failures without necessitating relearning. This adaptability
+                                                    underlines the potential of our approach to significantly enhance the robustness and flexibility of service
+                                                    migration in VNE, thereby contributing to the evolution of network slicing in post-5G networks.
+
+
+1. Introduction                                                                          In this paper, we tackle the challenges above. We propose and an-
+                                                                                     alyze several service migration strategies capable of efficiently placing
+    In the rapidly evolving telecommunications sector, network slicing               services even during topology changes. Our approach leverages the
+is emerging as a cornerstone of post-5G networks [1]. This technology,               power of Graph Neural Networks (GNN), allowing for a high degree
+which allows for the creation of multiple virtual networks on a single               of adaptability without the need for relearning [5]. These contribu-
+physical infrastructure, is revolutionizing the way we manage and                    tions represent a significant advancement in the field of VNE, which
+operate networks. However, realizing this vision depends on our ability              traditionally considers only static topologies, offering new avenues for
+to effectively enforce Virtual Network Embedding (VNE), which is a                   enhancing the robustness and flexibility of network slicing in post-5G
+crucial yet complex aspect of network slicing [2].                                   networks.
+    Traditional approaches to network slicing often consider static net-
+                                                                                         The remainder of this paper is organized as follows: In Section 3 we
+work topologies, an increasingly inadequate perspective in today’s
+                                                                                     delve into the VNE problem, providing a comprehensive formalization
+rapidly changing network environments [3]. Link failures, topology
+                                                                                     and highlighting the methodology employed for its resolution. Section 2
+modifications, and other unexpected changes can make these static
+                                                                                     introduces a brief overview of the related work and positions our
+methods ineffective, highlighting the need for a more robust network
+                                                                                     contribution. Section 4 focuses on the Virtual Network Request (VNR)
+capable of migrating services to adapt to the ever-changing networks.
+    The literature on service migration has evolved significantly over               migration problem, where we introduce and formalize the concept. In
+the years. While classical research has focused on single Network                    Section 5, we detail the migration strategies we propose, elucidating
+Functions (NFs) migration or paths’ replacements, recent studies have                their design and functionality. In Section 6, we present a detailed eval-
+highlighted the importance of considering graph-structured services.                 uation of our strategies, showing their advantages and limits. Finally,
+Various methodologies, ranging from Integer Linear Programming (ILP)                 Section 7 concludes the paper and discusses potential future research.
+to heuristics and metaheuristics, have been proposed to address the
+challenges of service migration in dynamic networks [4]. However,                    2. Related work
+many of these approaches are limited in handling complex network
+scenarios, particularly those involving changing topologies. Our work
+                                                                                         The advent of network slicing in 5G networks has reinforced the
+builds on these foundations, aiming to address the identified gaps and
+                                                                                     importance of service migration strategies in future networks, particu-
+provide a more comprehensive solution for service migration in post-5G
+                                                                                     larly as these networks become increasingly complex and dynamic. In
+networks.
+
+
+  ∗ Corresponding author.
+     E-mail addresses: federico.giarre@inria.fr (F. Giarrè), yhadjadj@irisa.fr (Y. Hadjadj-Aoul).
+
+https://doi.org/10.1016/j.comnet.2024.110553
+Received 23 August 2023; Received in revised form 28 February 2024; Accepted 27 May 2024
+Available online 28 May 2024
+1389-1286/© 2024 The Authors. Published by Elsevier B.V. This is an open access article under the CC BY license (http://creativecommons.org/licenses/by/4.0/).
+F. Giarrè and Y. Hadjadj-Aoul                                                                                                         Computer Networks 250 (2024) 110553
+
+
+fact, service migration plays a crucial role in maintaining network per-          minimize congestion [11,12]. For virtual link placement, these strate-
+formance and reliability, particularly in scenarios of changing network           gies typically rely on shortest-path calculations. While effective for
+conditions (e.g., network congestion, link degradation or failure) [4].           determining the shortest path between two points, they fall short
+In such situations, the ability to quickly and seamlessly migrate services        when placing graphs. These heuristics often underperform. More so-
+to less congested or more reliable parts of the network can significantly         phisticated heuristics, like those based on the Hopcroft–Karp [21] or
+improve network performance and user experience [6].                              Edmonds–Karp algorithms [18], offer worst-case guarantees. While not
+    Existing work can be classified according to several criteria: the            optimal, they present more efficient alternatives.
+triggers for migration, which could include congestion detection or                   Meta-heuristics, such as ‘‘Ant colony’’ [22], ‘‘Bee colony’’ [24],
+avoidance, network defects, or energy consumption optimization; the               ‘‘Simulated Annealing’’ [25], and ‘‘Particle-swarm’’ [23], have been
+methodology employed, which could be either reactive or proac-                    introduced to identify global optima for the resource relocation chal-
+tive; and the characteristics of the services being migrated, whether             lenge. These methods have proven to be adapted to tackle complex
+they are monolithic or graph-structured; and the resources’ alloca-               combinatorial problems. They facilitate a comprehensive exploration
+tion/reallocation algorithms. The different points listed here are or-            of the solution space, but require a digital twin, a precise replica
+thogonal and can be present together [7], but in what follows we will             of reality, to test the solutions’ efficiency before the placement. This
+only focus on the last two points.                                                requirement can be costly. In addition, each relocation request requires
+                                                                                  a new calculation, as this type of approach is deprived of any learning.
+2.1. Services’ characteristics                                                        Recent advancements have applied reinforcement learning to the
+                                                                                  VNE problem, yet few have specifically tackled service migration.
+                                                                                  The Irregular Cellular Learning Automata (ICLA) method, primarily
+    The characteristics of the services being migrated can significantly
+                                                                                  focusing on SDN controller and flows placements, has been suggested
+influence the migration strategy. Monolithic services, which are self-
+                                                                                  [26]. This method, however, presumes a limited state and action spaces
+contained and independent, can often be migrated more easily than
+                                                                                  for timely convergence, which is not the case for VNE. More critically,
+graph-structured services, which consist of multiple interconnected
+                                                                                  such techniques demand recurrent learning for convergence, rendering
+components. Indeed, the migration of graph-structured services re-
+                                                                                  them impractical for real-world scenarios.
+quires a guaranteed networking resources to maintain the dependencies
+                                                                                      In our study, we aim to advance the current state of the art by
+and interactions between different components. The majority of lit-
+                                                                                  introducing a technique that not only identifies superior solutions
+erature falls into the first category, i.e., where we have monolithic
+                                                                                  or even the global minimum using deep reinforcement learning but
+services [4].
+                                                                                  also eliminates the need for repetitive learning for each migration
+    Furthermore, services can be either constrained or unconstrained.
+                                                                                  computation through the integration of Graph Neural Nets (GNN). In
+Constrained services, such as those explored in this study, have specific
+                                                                                  addition, we evaluate various migration strategies, demonstrating that
+requirements. These may include the amount of bandwidth that must
+                                                                                  approaches based on partial migration offer the best balance between
+be available between the services’ components, particular latency con-
+                                                                                  cost and efficiency.
+cerns, and other system requirements. This complexity of requirements
+greatly complicates the resource allocation process and, in particular,           3. VNE mapping problem
+the migration process.
+                                                                                  3.1. Problem description
+2.2. Resource allocation/reallocation algorithms
+                                                                                      The Virtual Network Embedding (VNE) problem involves the alloca-
+    Resource allocation/reallocation algorithms are crucial in service            tion of physical resources to Virtual Network Requests (VNRs). A VNR
+migration, and the complexity of the algorithms involved often depends            is a graph that connects Virtual Network Functions (VNFs) with specific
+on the available resources and the constraints of the services to be              resource requirements. For the sake of simplicity, we will focus solely
+migrated [8]. Indeed, in the case of over-dimensioned systems with                on the CPU requirements that the VNFs will demand from the physical
+‘best-effort‘ monolithic services, a very basic migration strategy, such as       nodes of the underlying topology (i.e., substrate network).
+First-Fit, might be quite sufficient [9]. The issue becomes significantly             In this work, we will take into account a variation of the virtual node
+more complex when resources are not abundant (e.g., network edges)                mapping (VNM) process where the mapping function, 𝑓VNM (VNR) ∶
+and when dealing with constrained services structured as graphs. Our              NVNR ↣ N𝑠 is injective VNR-wise. This implies that VNFs belonging
+approach falls into the latter category, in which we delve in the rest of         to the same VNR cannot be placed on the same substrate node. Addi-
+the section.                                                                      tionally, to connect different VNFs, virtual links (VLs) are mapped onto
+    The approaches proposed in the literature can be classified in dif-           the topology using a virtual link mapping (VLM) function 𝑓VLM (VNR) ∶
+ferent ways (see the summary in Table 1).                                         LVNR → L𝑠 . One VL is composed of the succession of substrate links
+    While the literature contains limited studies specifically addressing         that it has to traverse to get from one VNF to another (𝑃𝑙𝑣 ). Each VL
+the service migration problem, it is worth noting that traditional re-            requires a certain amount of bandwidth for its deployment, and it is
+search on service placement could be adapted for redeploying services,            possible for multiple VLs (even belonging to the same VNR) to share
+just as new ones. However, migrating a service without considering its            the same substrate link. The substrate link has a limited total bandwidth
+current placement can be inefficient, as demonstrated in this paper, and          capacity, which serves as a constraint when deploying VLs onto it.
+might even risk destabilizing the network.                                            We can formalize the resource constraint for both 𝑓VNM and 𝑓VLM
+    Most of the literature approaches formalize the problem using In-             for the placement as:
+teger Linear Programming (ILP) [10,12,14,16–19,23–25]. Given the                                                     ∑
+                                                                                  𝑐𝑛𝑣 ≤ 𝑐𝑛𝑖 𝑠 where 𝑐𝑛𝑖 𝑠 = 𝑐𝑛0,𝑖𝑠 −   𝑐 𝑛𝑣                                (1)
+NP-completeness of the problem, these methods invariably suggest                                                       𝑛∈N𝑣𝑠
+alternative solutions for better scalability. An exact model is typically                                              ∑
+limited to solving small problem instances. Moreover, without knowl-              𝑏𝑙𝑣 ≤ 𝑏𝑖𝑙𝑠   where   𝑏𝑖𝑙𝑠 = 𝑏0,𝑖
+                                                                                                               𝑙𝑠
+                                                                                                                   −           𝑏𝑙 𝑣                                  (2)
+edge of future requests, such models are not efficiently applicable and                                                𝑙∈L𝑣𝑠
+
+cannot guarantee optimality [27].                                                       In Eq. (1), 𝑐𝑛𝑣 represents the resource requirement of VNF 𝑛𝑣 , and
+    The prevalent heuristics to address the migration challenge often             𝑐𝑛𝑖 𝑠 represents the available residual CPU resources at the placement
+employ ‘‘First-Fit’’ or ‘‘Decreasing First-Fit’’ strategies for node place-       location 𝑛𝑠 after considering the resource consumption of all currently
+ment [10–21], with variations to optimize energy consumption or                   placed VNFs. This constraint guarantees that the placement of VNFs is
+
+                                                                              2
+F. Giarrè and Y. Hadjadj-Aoul                                                                                                             Computer Networks 250 (2024) 110553
+
+                 Table 1
+                 Summary of existing approaches.
+                   Ref.    Type of migration                        Type of            Type of           Exact   Objective   Triggering      Re-
+                                                                    network            algorithm                             event           learning
+                           NFs    Paths      Part S.   Whole S.
+                   [10]                                ✓            DC                 Heuristic         ILP     SA          Any             Not applicable
+                   [11]                                ✓            DC                 Heuristic                 Energy      Any             Not applicable
+                   [12]                                ✓            DC                 Heuristic         ILP     Energy      Any             Not applicable
+                   [13]           ✓                                 WAN                Heuristic                 SA          Any             Not applicable
+                   [14]                                ✓            WAN                Heuristic         ILP     R2C         Mobility        Not applicable
+                   [15]                                ✓            WAN                Heuristic                 SA          Any             Not applicable
+                   [16]                                ✓            WAN                Heuristic         ILP     R2C         Mobility        Not applicable
+                   [17]                                ✓            WAN                Heuristic         ILP     R2C         Any             Not applicable
+                   [18]                      ✓                      WAN                Heuristic         ILP     R2C         Failure         Not applicable
+                   [19]                      ✓                      WAN                Heuristic         ILP     R2C         Any             Not applicable
+                   [20]                      ✓                      WAN                Heuristic                 R2C         Any             Not applicable
+                   [21]                      ✓                      WAN                Heuristic                 R2C         Mobility        Not applicable
+                   [22]    ✓                                        DC                 Meta-heuristic            Energy      Any             Needed
+                   [23]           ✓                                 WAN                Meta-heuristic    ILP     Energy      Any             Needed
+                   [24]                                ✓            WAN                Meta-heuristic    ILP     SA          Any             Needed
+                   [25]                                ✓            WAN                Meta-heuristic    ILP     R2C         Congestion      Needed
+                   [26]           ✓                                 WAN                RL                        R2C         Any             Needed
+                   Our     ✓      ✓          ✓         ✓            WAN                DRL                       R2C         Any             Not needed
+
+
+Table 2                                                                                      3.2. DRL approach
+Notation.
+ Notation                             Description                                                The problem defined in the previous section is a more complex ver-
+ 𝑠 , 𝑣                              Substrate network and VNR graphs                       sion of the knapsack problem, which is already NP-complete and thus
+ N𝑠 , N𝑣                              Set of substrate nodes and VNFs                        very hard to solve with exact optimization techniques. Moreover, the
+ L𝑠 , L𝑣                              Set of substrate links and VLs
+ N 𝑟 , L𝑟                             Set of VNFs and VLs to remap
+                                                                                             system under consideration is dynamic (dynamic arrival and departure
+ N𝑣𝑠 , L𝑣𝑠                            Set of VNFs and VLs on node or link s                  of services), which makes classical methods unsuitable [27]. Indeed,
+ N𝑉 , L𝑉                              Set of VNFs and VLs of a VNR 𝑉                         since we do not have access to future requests, we cannot guarantee
+ (v)                                 Revenue to cost of the VNR 𝑣                           optimality. However, learning techniques are able to generalize from
+ (N𝑟 , L𝑟 )                          Migration cost of a VNR
+                                                                                             past experiences and enable a real-time execution once trained.
+ 𝑐𝑛0,𝑖𝑠                               Overall CPU capacity of sub. node 𝑛𝑠 at time 𝑖
+ 𝑐𝑛𝑖 𝑠                                Available CPU at sub. node 𝑛𝑠 at time i                    As labeled data is not available, and knowing the superiority of
+ 𝑏0,𝑖
+   𝑙𝑠
+                                      Bandwidth capacity of sub. link 𝑙𝑠 at time 𝑖           reinforcement learning strategies [28], we decided to tackle the node
+ 𝑏𝑖𝑙𝑠                                 Available Bandwidth at sub. link 𝑙𝑠 at time i          mapping phase of the problem by proposing a Deep Reinforcement
+ 𝑐𝑛𝑣                                  CPU requested by VNF 𝑛𝑣                                Learning (DRL) Agent.
+ 𝑏𝑙 𝑣                                 Bandwidth requested by VL 𝑙𝑣
+                                                                                                 In order to build such an agent, we need to express the VNE
+ 𝑃𝑙 𝑣                                 Substrate path for a VL 𝑙𝑣
+ |𝑃𝑙𝑣 |                               Number of substrate link hops for a VL 𝑙𝑣              mapping problem as a Markov Decision Process [29] (MDP). In the
+                                                                                             following, we outline this MDP through its state representation, action
+                                                                                             space, and reward function (see Fig. 1).
+
+resource-aware, preventing the overloading of the substrate nodes and                        3.2.0.1. State representation. The state is given by the pair (𝑠 , 𝑣 ).
+ensuring the efficient utilization of available resources in the network.                    Each substrate node at time 𝑖 has two defining features: 𝑐𝑛0,𝑖𝑠 and
+    Eq. (2) applies similar reasoning to the bandwidth constraint. Here,                     𝑏0,𝑖
+                                                                                              𝑙𝑠
+                                                                                                  . VNFs are characterized by their CPU and bandwidth demands,
+𝑏𝑙𝑣 represents the resource requirement of VL 𝑙𝑣 , and 𝑏𝑖𝑙𝑠 represents                       represented as 𝑐𝑛𝑣 and 𝑏𝑙𝑣 .
+the available residual bandwidth resources on the physical link 𝑙𝑠 . The
+                                                                                             3.2.0.2. Action space. The action space only concerns the VNM phase
+constraint ensures that a VL can only be placed if there are sufficient
+                                                                                             of the VNR placement. Let 𝑖 represent the set of potential substrate
+residual bandwidth resources available after accounting for the existing
+                                                                                             nodes for deploying the 𝑖th VNF of the VNR, and 𝑎𝑖 be the chosen
+VLs on that link (see Table 2).
+                                                                                             action. Given that VNFs are placed in sequence and the VNM function’s
+    The goal of the VNE mapping problem is to map a VNR graph with
+                                                                                             injectivity must be maintained, the action space can be expressed as:
+the best possible fit onto the substrate network. In this study, we focus
+solely on evaluating the quality of the placement based on the distance                      𝑖 = 0 ∕{𝑎1 ...𝑎𝑖−1 }
+(measured in hops) between the VNFs. Thus, a perfect fit will have
+VNFs connected by VLs that are formed by only one substrate link.                            3.2.0.3. Reward function. The reward function is designed to guide the
+In order to measure this, we utilized the Revenue to Cost ((VNR) )                          Agent towards optimal VNR placements. It operates as follows:
+measure, which is computed as:                                                                     • Successful Placement: If the Agent successfully completes both the
+       {
+          𝜌𝑏𝑙𝑣 (|𝑃𝑙𝑣 | − 1) 𝐢𝐟 |𝑃𝑙𝑣 | > 1                                                            VNM and VLM phases, it receives a reward equivalent to the R2C
+𝐻𝑙 𝑣 =                                                                (3)                            of the placed VNR. This encourages the Agent to find placements
+          0       𝐨𝐭𝐡𝐞𝐫𝐰𝐢𝐬𝐞
+                  ∑                                                                                  that optimize the R2C metric.
+                    𝑙𝑣 ∈L𝑉 𝑏𝑙𝑣                                                                     • Unsuccessful Placement: In cases where the Agent fails in either the
+(VNR) = ∑                                                            (4)
+                𝑙 ∈L𝑉 𝑏𝑙𝑣 + 𝐻𝑙𝑣
+                 𝑣                                                                                   VNM or VLM phases, a penalty of −1 is given. This discourages
+   The factor described in Eq. (3) is meant to be penalizing the (VNR)                              the Agent from making placements that lead to failures.
+when paths 𝑃𝑙𝑣 are composed of more than one substrate link. To avoid                              • Intermediate Placements: During the process, each VNF is placed
+penalizing too much the Revenue to Cost of a VNR due to longer                                       sequentially. For these individual or intermediate placements, the
+substrate hops, the discount factor 𝜌 is applied. As for Eq. (4), the                                Agent receives a neutral reward of 0. This ensures that the Agent
+(VNR) will return a value in the range [0, 1], where a higher value                                 does not receive premature positive or negative feedback before
+corresponds to a better placement.                                                                   the entire VNR is placed.
+
+                                                                                         3
+

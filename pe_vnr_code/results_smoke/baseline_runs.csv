@@ -1,0 +1,7 @@
+seed,baseline,num_records,migrations,avg_risk,avg_estimated_cost,avg_realized_cost,avg_disruption,avg_post_risk,sla_violations
+0,no_reconfiguration,4.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0
+0,reactive,4.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0
+0,proactive_heuristic,4.0,1.0,1.0,1.0,0.25,0.25,1.0,0.0
+1,no_reconfiguration,4.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0
+1,reactive,4.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0
+1,proactive_heuristic,4.0,1.0,1.0,1.0,0.25,0.25,1.0,0.0

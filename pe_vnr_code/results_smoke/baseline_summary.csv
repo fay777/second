@@ -1,0 +1,4 @@
+baseline,runs,num_records_mean,num_records_std,migrations_mean,migrations_std,avg_risk_mean,avg_risk_std,avg_estimated_cost_mean,avg_estimated_cost_std,avg_realized_cost_mean,avg_realized_cost_std,avg_disruption_mean,avg_disruption_std,avg_post_risk_mean,avg_post_risk_std,sla_violations_mean,sla_violations_std
+no_reconfiguration,2,4.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0
+reactive,2,4.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0
+proactive_heuristic,2,4.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,0.25,0.0,0.25,0.0,1.0,0.0,0.0,0.0

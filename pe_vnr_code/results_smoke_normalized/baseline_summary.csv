@@ -1,0 +1,4 @@
+baseline,runs,num_records_mean,num_records_std,migrations_mean,migrations_std,avg_risk_mean,avg_risk_std,avg_estimated_cost_mean,avg_estimated_cost_std,avg_realized_cost_mean,avg_realized_cost_std,avg_disruption_mean,avg_disruption_std,avg_post_risk_mean,avg_post_risk_std,sla_violations_mean,sla_violations_std
+no_reconfiguration,3,6.0,0.0,0.0,0.0,0.5962475113643989,0.005739579101229869,0.0,0.0,0.0,0.0,0.0,0.0,0.5962475113643989,0.005739579101229869,1.0,0.0
+reactive,3,6.0,0.0,1.0,0.0,0.5962475113643989,0.005739579101229869,0.16666666666666666,0.0,0.16666666666666666,0.0,0.16666666666666666,0.0,0.5881192151819252,0.00635897096805685,1.0,0.0
+proactive_heuristic,3,6.0,0.0,1.0,0.0,0.561503227610417,0.00420205741640921,0.8333333333333334,0.0,0.16666666666666666,0.0,0.16666666666666666,0.0,0.5525251236071603,0.0031685420957124517,1.0,0.0

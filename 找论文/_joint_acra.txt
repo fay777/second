@@ -1,0 +1,193 @@
+IEEE TRANSACTIONS ON SERVICES COMPUTING, VOL. 17, NO. 3, MAY/JUNE 2024                                                                                       1001
+
+
+
+
+ Joint Admission Control and Resource Allocation of
+  Virtual Network Embedding via Hierarchical Deep
+              Reinforcement Learning
+                      Tianfu Wang , Li Shen , Qilin Fan , Member, IEEE, Tong Xu , Member, IEEE,
+                            Tongliang Liu , Senior Member, IEEE, and Hui Xiong , Fellow, IEEE
+
+
+   Abstract—As an essential resource management problem in net-                   settings, and show that HRL-ACRA outperforms state-of-the-art
+work virtualization, virtual network embedding (VNE) aims to                      baselines in terms of both the acceptance ratio and long-term
+allocate the finite resources of physical network to sequentially                 average revenue.
+arriving virtual network requests (VNRs) with different resource
+demands. Since this is an NP-hard combinatorial optimization                        Index Terms—Network virtualization,                    virtual    network
+problem, many efforts have been made to provide viable solutions.                 embedding, deep reinforcement learning.
+However, most existing approaches have either ignored the admis-
+sion control of VNRs, which has a potential impact on long-term
+performances, or not fully exploited the temporal and topological                                             I. INTRODUCTION
+features of the physical network and VNRs. In this article, we
+                                                                                         S THE demand for Quality of Service (QoS) has been
+propose a deep Hierarchical Reinforcement Learning approach to
+learn a joint Admission Control and Resource Allocation policy
+for VNE, named HRL-ACRA. Specifically, the whole VNE process
+                                                                                  A      continuously strengthened, research on efficient network
+                                                                                  resource management architectures has received massive atten-
+is decomposed into an upper-level policy for deciding whether to                  tion from academia and industry. Traditional network manage-
+admit the arriving VNR or not and a lower-level policy for allocat-               ment architectures directly execute diverse network functions on
+ing resources of the physical network to meet the requirement of
+VNR through the HRL approach. Considering the proximal policy
+                                                                                  different dedicated servers, confronted with the increasing pres-
+optimization as the basic training algorithm, we also adopt the av-               sure of network services. Network virtualization has emerged
+erage reward method to address the infinite horizon problem of the                as one of the promising approaches to overcome this prob-
+upper-level agent and design a customized multi-objective intrinsic               lem, which is capable of decoupling the network services from
+reward to alleviate the sparse reward issue of the lower-level agent.             their underlying hardware and empowering the programmability
+Moreover, we develop a deep feature-aware graph neural network
+to capture the features of VNR and physical network and exploit
+                                                                                  of services [1]. By integrating advanced technologies such as
+a sequence-to-sequence model to generate embedding actions it-                    software-defined networking (SDN) and network function virtu-
+eratively. Finally, extensive experiments are conducted in various                alization (NFV), network virtualization has become an essential
+                                                                                  part of next-generation networks for its superior capabilities
+   Manuscript received 16 March 2023; revised 2 October 2023; accepted 11         to improve network resource utilization and reduce network
+October 2023. Date of publication 23 October 2023; date of current version
+12 June 2024. This work was supported in part by the National Natural             difficulty management significantly [2].
+Science Foundation of China under Grant 92370204, and in part by the Sci-            In the network virtualization framework, user network re-
+ence and Technology Planning Project of Guangdong Province under Grant            quests are constructed as graph-structured virtual network re-
+2023A0505050111. Recommended for acceptance by Y. Wang. (Corresponding
+authors: Hui Xiong and Li Shen.)                                                  quests (VNRs), consisting of virtual network functions and
+   Tianfu Wang and Tong Xu are with the Anhui Province Key Laboratory             virtual links, dynamically arriving at the physical network to
+of Big Data Analysis and Application, School of Computer Science, Uni-            acquire resources. Then, the Internet providers will attempt to
+versity of Science and Technology of China, Hefei 230027, China (e-mail:
+tianfuwang@mail.ustc.edu.cn; tongxu@ustc.edu.cn).                                 allocate node and link resources of physical network for VNRs
+   Qilin Fan is with the School of Big Data and Software Engineering, Chongqing   under various constraints. To maximize the revenue of Internet
+University, Chongqing 401331, China (e-mail: fanqilin@cqu.edu.cn).                providers, we need to decide which VNRs to be accepted and
+   Li Shen is with the JD Explore Academy, Beijing 101111, China (e-mail:
+mathshenli@gmail.com).                                                            how resources to be allocated, constituting an NP-hard combina-
+   Tongliang Liu is with the UBTECH Sydney Artificial Intelligence Centre and     torial optimization problem, called virtual network embedding
+the School of Information Technologies, Faculty of Engineering and Information    (VNE) [3].
+Technologies, The University of Sydney, Darlington, NSW 2008, Australia
+(e-mail: tongliang.liu@sydney.edu.au).                                               For this fundamental network management problem, many
+   Hui Xiong is with the Hong Kong University of Science and Technology           research efforts have been devoted to improving the performance
+(Guangzhou) Thrust of Artificial Intelligence Nansha, Guangzhou, Guangdong        of VNE. Classical approaches are categorized as the exact [4],
+511400, China, and also with the Department of Computer Science and Engi-
+neering, The Hong Kong University of Science and Technology, Hong Kong,           [5], [6], the heuristic [7], [8], [9] and the meta-heuristic [10],
+SAR, China (e-mail: xionghui@ust.hk).                                             [11], [12] ones. For exact algorithms, they aim at finding the
+   Our code is available at https://github.com/GeminiLight/hrl-acra.              optimal embedding solutions yet result in high computational
+   This article has supplementary downloadable material available at
+https://doi.org/10.1109/TSC.2023.3326539, provided by the authors.                complexity. Heuristic methods require rich expert knowledge
+   Digital Object Identifier 10.1109/TSC.2023.3326539                             and trial experience to design efficient heuristics. At the same
+                         1939-1374 © 2023 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                       See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+       Authorized licensed use limited to: China University of Petroleum. Downloaded on June 28,2026 at 03:26:29 UTC from IEEE Xplore. Restrictions apply.
+1002                                                                            IEEE TRANSACTIONS ON SERVICES COMPUTING, VOL. 17, NO. 3, MAY/JUNE 2024
+
+
+
+time, meta-heuristic approaches are often non-deterministic and                          enhance the upper-level agent to treat the current and future
+depend on extensive searches to discover high-quality solutions.                         revenue more equally. We also customize a multi-objective
+   Recently, several learning-based approaches [13], [14], [15]                          intrinsic reward with multiple local indicators to alleviate
+have been proposed due to their excellent abilities to build better                      the sparse reward issue, encouraging the lower-level agent
+heuristics from data automatically. However, these works pose                            to perform exploration.
+two challenges. First, they rely on manually-extracted features                       r We design a deep feature-aware graph neural network
+or merely exploit partial latent temporal or topological features                        (GNN) with link feature awareness to make full use of
+of the physical network and VNRs. Insufficient representation                            topological features of the physical network and VNRs. Ex-
+capability will limit the accuracy of VNE decisions. Second,                             ploiting the topological information and temporal depen-
+most existing approaches can only optimize resource allocation                           dence simultaneously, we employ a sequence-to-sequence
+for the current incoming VNR, ignoring the admission control                             (Seq2seq) model based on this GNN and gated recurrent
+of VNRs which has a potential impact on long-term benefits.                              unit (GRU) to generate embedding actions iteratively.
+VNRs need to compete for the limited resources provided by the                        r To simulate various real network situations, we conduct
+physical network. An embedded VNR will release the resource                              simulation experiments by adjusting the environment pa-
+occupied until its service completes. If a VNR is embedded                               rameters. Extensive experimental results demonstrate that
+with a low-quality solution, the network system will remain                              the proposed approach outperforms other SOTA algorithms
+in a low resource utilization state until this VNR completes.                            on acceptance ratio and long-term average revenue.
+As a result, more VNRs arriving later may be rejected due to                          The remainder of this paper is organized as follows. The re-
+scarce resources. Therefore, the uncertainty of upcoming VNRs                      lated work is presented in Section II. In Section III, we provided
+presents a critical challenge in promoting the long-term benefits                  the formulation of VNE problem and the basic concepts of GNN
+of Internet providers.                                                             and RL. The details of our proposed algorithms are described
+   To address the above-mentioned challenges, we propose a                         in Section IV. In Section V, the experimental results and their
+Hierarchical Reinforcement Learning (RL) approach to learn                         analysis are given. Finally, we conclude this paper in Section VI.
+a joint Admission Control and Resource Allocation policy for
+online VNE, named HRL-ACRA. Admission control and re-                                                         II. RELATED WORK
+source allocation are considered as upper-level and lower-level
+                                                                                      Since the VNE problem is critical but challenging in network
+tasks in a hierarchical framework. We model both tasks as
+                                                                                   virtualization, studies for tackling it have received tremendous
+Markov decision processes (MDPs) and develop a hierarchical
+                                                                                   attention. In this section, we summarize the related works in two
+optimization framework based on the proximal policy optimiza-
+                                                                                   categories, the traditional and learning-based methods, and their
+tion (PPO) [16] algorithm to train the corresponding policies.
+                                                                                   brief information is concluded in Table I.
+For each arriving VNR, an upper-level policy is responsible
+for deciding whether to admit it or not. The early rejection of
+inappropriate VNRs could reduce the unnecessary embedding                          A. Traditional Methods
+process, thus improving resource utilization and accelerating                         We categorize the traditional methods into three categories,
+the deployment speed. A lower-level policy is appointed to                         the exact, heuristic, and meta-heuristic algorithms.
+allocate resources of the physical network to meet the require-                       For the exact algorithms, the VNE problem can be typi-
+ment of VNR. Specially, the average revenue method [17] is                         cally formulated as mathematical programming. Chowdhury
+adopted to address the infinite horizon problem of the upper-level                 et al. [4] transformed VNE as a mixed-integer linear program-
+agent, and a multi-objective intrinsic reward is customized to                     ming (MILP) by physical network augmentation and constraint
+alleviate the sparse reward issue of the lower-level agent. To                     relaxation, coordinating node, and link Mapping. Shahriar et
+fully use topological information and temporal relationship, we                    al. [5] formulated VNE as an integer linear programming (ILP)
+also design some deep neural network modules for sufficient                        problem, taking spare capacity location and request survivability
+feature extraction. Thanks to these carefully designed modules,                    into consideration. Diallo et al. [6] developed an ILP-based
+HRL-ACRA achieves state-of-the-art (SOTA) performance with                         method for VNR splitting and a MILP-based approach for
+respect to several criteria.                                                       resource mapping to solve the multi-domain VNE problem.
+   To the end, our contributions are summarized as four-fold:                      However, these algorithms cannot handle online deployment
+   r We propose a hierarchical RL method for the admission                         scenarios for their high computational complexity.
+      control-aware online VNE problem. We cast admission                             Instead of achieving optimal solutions, a wealth of heuristics-
+      control and resource allocation as upper-level and lower-                    based algorithms are proposed to find feasible solutions quickly.
+      level tasks in a hierarchical framework, model them as                       Among them, node ranking is the primary strategy. Gong
+      MDPs, and learn a joint policy. The upper-level agent                        et al. [7] applied global resource capacity to evaluate the im-
+      takes the long-term benefits into consideration, while the                   portance of nodes of the physical network and virtual network
+      lower-level agent pays close attention to the short-term                     based on a random walk model, and then used the greedy
+      profit.                                                                      matching strategy and the breadth-first search algorithm to
+   r To address the infinite horizon problem caused by the                         conduct the node mapping and link mapping, respectively. A
+      continuous interactions between the upper-level agent and                    simple admission control strategy based on revenue-to-cost also
+      incoming VNRs, we adopt the average revenue method to                        was proposed to improve the long-term benefits. Still, it only
+
+       Authorized licensed use limited to: China University of Petroleum. Downloaded on June 28,2026 at 03:26:29 UTC from IEEE Xplore. Restrictions apply.
+WANG et al.: JOINT ADMISSION CONTROL AND RESOURCE ALLOCATION OF VIRTUAL NETWORK EMBEDDING                                                                  1003
+
+
+
+                                                                     TABLE I
+                                                           THE SUMMARY OF RELATED WORKS
+
+
+
+
+focused on the embedding solution of the current VNR without                    According to the nature of the available learning signal, ma-
+considering future VNRs. Similarly, Zhang et al. [8] adopted a                  chine learning is usually categorized into three major categories:
+capacity-based metric to sort nodes with multiple resource types.               supervised learning (SL), unsupervised learning (uSL), and re-
+   Even though these algorithms are capable of generating fea-                  inforcement learning (RL). Several works investigate machine
+sible solutions quickly, they incur high blocking rates. Some                   learning applications to the VNE problem, and we introduce
+schemes are also proposed to further improve the solution                       some of them following the three categories mentioned above.
+quality of VNE problems by handling failure situations. Yang                       Supervised learning has achieved great success in image
+et al. [19] studied the NP-hardness of the delay-sensitive and                  recognition, text classification, and other scenarios. Treating the
+availability-aware VNE problem, and introduced a recursive                      admission control mechanism of VNE as a binary classification
+heuristic method using the restricted shortest path algorithm                   problem, Andreas et al. [20] applied this idea to improve the
+method to solve it. Fan et al. [9] designed a priority of lo-                   existing VNE algorithm’s performance by utilizing a Recurrent
+cation VNE algorithm, following node proximity sensing and                      Neural Network (RNN) to judge whether to admit or reject
+path comprehensive evaluation. Lin et al. [27] designed sev-                    arriving VNRs, but only considered the rejection of infeasible
+eral heuristic algorithms for energy-aware VNE problem based                    VNRs to avoid wasting time. Different from supervised learning
+on auxiliary graph building methods. Nevertheless, designing                    relying on labeled samples, unsupervised learning is capable of
+heuristics relies on rich expert knowledge and trial experience                 discovering underlying structures in unlabeled data. To reduce
+and only accommodates a few specific scenarios.                                 the large search space, Blenk et al. [13] applied the Hopfield
+   Moreover, many meta-heuristic algorithms have also been                      neural network to extract subgraphs fed to other existing VNE
+adopted to address the VNE problem and obtain near-optimal                      algorithms, resulting in faster and more resource-efficient em-
+solutions. Fajjari et al. [10] presented an ant colony optimiza-                beddings. Habibi et al. [21] adopted the graph autoencoder
+tion algorithm for VNE problems that iteratively searches the                   (GAE) to cluster physical nodes and then randomly sample one
+solution spaces of node mapping. Su et al. [11] designed an                     node as the initial center to execute the breadth-first search (BFS)
+energy-aware VNE algorithm based on the particle swarm opti-                    method in each cluster.
+mization technique, regarding the node mapping solution as the                     The embedding process of VNE can be regarded as a series of
+position of particles. To solve large-scale VNE problems, Song                  decisions, and some studies tackled this problem by reinforce-
+et al. [12] proposed a divide-and-conquer evolutionary algorithm                ment learning (RL). Modeling the node selection process as a
+that utilizes the overlapping decomposition method to group the                 Markov decision process (MDP), Haeri et al. [14] utilized the
+critical elements with tight connections to many other nodes into               Monte Carlo tree search (MCTS) to improve the revenue-to-cost
+multiple sub-components. However, meta-heuristic algorithms                     ratio. Wang et al. [23] trained a multi-layer perceptron (MLP)
+are often non-deterministic and depend on extensive searches to                 model with temporal-difference learning to approximate the
+discover high-quality solutions.                                                value function of VNE states. Using a convolutional neural
+                                                                                network (CNN) to extract the attributes of physical nodes and
+                                                                                training it with REINFORCE algorithm, Li et al. [24] proposed
+B. Learning-Based Methods                                                       a double-layer RL-based framework for VNE to learn the node
+  Recently, machine learning has proved to be a promis-                         mapping and link mapping process jointly. Yao et al. [25]
+ing direction for solving combinatorial optimization problems.                  designed a sequence-to-sequence model based on a recurrent
+
+     Authorized licensed use limited to: China University of Petroleum. Downloaded on June 28,2026 at 03:26:29 UTC from IEEE Xplore. Restrictions apply.
+

@@ -1,0 +1,220 @@
+                                                                                                                                                                                          1
+
+
+
+
+                                                 Joint Network Function Placement and Routing
+                                                   Optimization in Dynamic Software-defined
+                                                     Satellite-Terrestrial Integrated Networks
+                                                                      Shuo Yuan, Member, IEEE, Yaohua Sun, and Mugen Peng, Fellow, IEEE
+
+
+
+                                              Abstract—Software-defined satellite-terrestrial integrated net-              In conventional practice, LEO satellite payloads have gen-
+arXiv:2310.13940v1 [eess.SP] 21 Oct 2023
+
+
+
+
+                                           works (SDSTNs) are seen as a promising paradigm for achieving                erally been designed for dedicated services, such as remote
+                                           high resource flexibility and global communication coverage.                 sensing or navigation [4]. Consequently, the resource of the
+                                           However, low latency service provisioning is still challenging due
+                                           to the fast variation of network topology and limited onboard                payload, such as communication and computation resource,
+                                           resource at low earth orbit satellites. To address this issue, we            cannot be shared by other services, even when the payload
+                                           study service provisioning in SDSTNs via joint optimization of               is idle. This limitation leads to low resource utilization. To
+                                           virtual network function (VNF) placement and routing planning                address this issue, some studies have introduced network
+                                           with network dynamics characterized by a time-evolving graph.                function virtualization (NFV) technology into satellite payload
+                                           Aiming at minimizing average service latency, the corresponding
+                                           problem is formulated as an integer nonlinear programming un-                design [5]–[7], which substitutes hardware middleboxes with
+                                           der resource, VNF deployment, and time-slotted flow constraints.             software modules known as virtual network functions (VNFs).
+                                           Since exhaustive search is intractable, we transform the pri-                The deployment of VNFs offers more flexibility compared to
+                                           mary problem into an integer linear programming by involving                 the manual installation of hardware middleboxes, as it involves
+                                           auxiliary variables and then propose a Benders decomposition                 initiating a VNF instance using virtualized resources through
+                                           based branch-and-cut (BDBC) algorithm. Towards practical use,
+                                           a time expansion-based decoupled greedy (TEDG) algorithm is                  a prebuilt file [8]. Furthermore, by incorporating software-
+                                           further designed with rigorous complexity analysis. Extensive                defined network (SDN) to separate the control plane and the
+                                           experiments demonstrate the optimality of BDBC algorithm and                 data plane of STNs [9], software-defined STNs (SDSTNs) are
+                                           the low complexity of TEDG algorithm. Meanwhile, it is indicated             formed, featuring flexible network management and system
+                                           that they can improve the number of completed services within                performance control.
+                                           a configuration period by up to 58% and reduce the average
+                                           service latency by up to 17% compared to baseline schemes.
+                                             Index Terms—Satellite-terrestrial integrated networks, virtual             A. Related Works
+                                           network function placement, routing planning, end-to-end latency
+                                                                                                                           Different from regular resource allocation strategies in
+                                                                                                                        STNs, which typically focus on aspects such as beam schedul-
+                                                                                                                        ing, power allocation, and subchannel assignment to meet
+                                                                    I. I NTRODUCTION
+                                                                                                                        user data rate demands [10] or optimize system throughput
+                                                ATELLITE networks are able to provide communication
+                                           S    services for remote areas, e.g. deserts and oceans, that
+                                           lack terrestrial communication infrastructure. Owing to this
+                                                                                                                        [11], SDSTNs offer more flexible resource management, such
+                                                                                                                        as deploying VNFs and planning service routing paths on-
+                                                                                                                        demand, to improve service quality or network profit [9].
+                                           merit, the paradigm of satellite-terrestrial integrated networks             These regular resource allocation strategies cannot be directly
+                                           (STNs) is considered as the key to achieving global coverage                 applied to the joint VNF placement and routing planning in
+                                           and ubiquitous connectivity in the sixth generation (6G) era                 STNs due to the following challenges. First, the relative mo-
+                                           [1]. Compared with geostationary earth orbit satellites and                  tion among satellites leads to dynamic network topologies and
+                                           medium earth orbit satellites, low earth orbit (LEO) satellites              variable resource availability, making it difficult to characterize
+                                           have a lower altitude with the range of 300-2000 km above                    heterogeneous resources in dynamic STNs. The existing works
+                                           the earth surface, which means reduced propagation latency,                  often model the network topology in a static manner, which
+                                           better signal quality, and lower launch cost [2]. Representa-                limits their applicability in dynamic scenarios where topology
+                                           tive commercial LEO satellite programs include Starlink and                  changes are frequent [11]–[13]. Second, VNF placement in
+                                           OneWeb [3].                                                                  STNs is closely coupled with service routing path planning.
+                                             This work was supported in part by the Beijing Municipal Science and       Although there are some studies on computing offloading
+                                           Technology Project under Grant Z211100004421017, in part by the National     that consider the selection of offloading paths, these optional
+                                           Natural Science Foundation of China under Grants 62371071 and 62001053,      offloading paths are often deterministic and limited in number
+                                           and in part by the Young Elite Scientists Sponsorship Program by the China
+                                           Association for Science and Technology under Grant 2021QNRC001.              [12]–[14]. However, in the context of VNF placement, the
+                                             Shuo      Yuan    (yuanshuo@bupt.edu.cn),      Yaohua     Sun   (sunyao-   service path must traverse all relevant VNFs, which may be
+                                           hua@bupt.edu.cn), and Mugen Peng (pmg@bupt.edu.cn) are with the              placed on different network nodes. Consequently, it becomes
+                                           State Key Laboratory of Networking and Switching Technology, Beijing
+                                           University of Posts and Telecommunications, Beijing 100876, China.           critically important to accurately model flow conservation
+                                           (Corresponding author: Yaohua Sun)                                           constraints in STNs. Moreover, the limited satellite payloads
+                                                                                                                                   2
+
+
+
+impose constraints on onboard resource, including compu-            varying STNs, the authors in [27] formulate a joint service
+tation units and bandwidth, which are scarce and must be            routing and VNF placement problem and then propose a
+carefully allocated and scheduled to ensure high resource           classic shortest path-based solution. However, there have been
+utilization.                                                        few efforts toward reducing service end-to-end latency in the
+   For routing planning in STNs, an energy-efficient satellite      context of VNF placement and routing planning under multi-
+routing algorithm is designed in [15] where the number of           time slot dynamic STN topologies, and there is a lack of
+hops and the load of links are considered. To avoid satel-          research on modeling time-slotted service flow conservation
+lite congestion and reduce queuing latency, literature [16]         constraints.
+proposes a software-defined routing algorithm based on a
+distributed master-slave SDN controller architecture. In [17],
+a cross-domain adaptive cooperation routing scheme for SDN-         B. Motivations and Contributions
+based layered STNs is presented to balance the load among              Based on the above literature review and observations, the
+nodes and maximize the network throughput. Moreover, some           following limitations can be identified for VNF placement and
+other works have investigated the joint optimization of VNF         routing planning in existing works concerning dynamic STNs,
+placement and routing planning. In [18], a sharing-based            i.e.,
+VNF placement and service data routing problem is stud-
+ied to minimize resource cost, and a greedy algorithm is             1) Although some existing works, such as [24], [27], have
+proposed by considering the differential features of satellite          explored VNF placement in dynamic STN topologies,
+and ground nodes. To lower cross-domain service latency,                they focus on optimizing resource efficiency and net-
+a multi-domain VNF mapping orchestration framework with                 work profit. However, there remains a lack of research
+distributed controllers is proposed in [19]. In [20], the VNF           addressing the reduction of end-to-end service latency
+placement problem in satellite edge clouds is formulated as an          under these dynamic topologies.
+integer non-linear programming problem to jointly minimize           2) Concerning routing planning coupled with VNF place-
+the network bandwidth cost and service end-to-end latency and           ment, existing works, such as [18]–[21], [25]–[27], do
+a heuristic distributed VNF placement algorithm is developed.           not consider routing across multiple time slots in STNs.
+   However, the above works assume that the topologies of               Consequently, there is a scarcity of research examining
+SDSTNs are static, which are inconsistent with practical                service flow conservation under dynamic network topolo-
+situations. Although some works [8], [21] incorporate user              gies. Furthermore, the undetermined service completion
+mobility in VNF placement optimization and introduce user               time poses challenges for modeling time-slotted service
+dynamics into network modeling, the target scenarios of these           flow conservation.
+works are primarily focused on terrestrial networks. In such         3) Exclusive allocation strategies over large periods are
+contexts, the paths between network nodes are generally                 commonly employed in existing works, which often limit
+considered to be predetermined and stable, which reduces                the reallocation of idle resource after completing a service
+the necessity for further consideration of routing planning.            and resulting in low resource utilization efficiency.
+However, in SDSTNs, the availability of inter-satellite links        4) The joint VNF placement and routing planning problems
+(ISLs), satellite-terrestrial links (STLs), and computation re-         are generally NP-hard [24]–[26], making it challenging to
+source vary over time, leading to a highly dynamic network              obtain an optimal solution with polynomial complexity.
+structure. These dynamic natures of SDSTNs necessitate being            Due to the dynamic nature of STN topologies, additional
+captured precisely for the exploration of joint VNF placement           challenges arise, including larger variable and constraint
+and routing planning.                                                   sizes, as well as nonlinear flow conservation constraints,
+   To characterize the dynamic network topology and availabil-          when devising effective solutions for such joint problems.
+ity of heterogeneous resource, some researchers have adopted           Motivated by these observations, in this paper, the commu-
+a time-evolving graph (TEG) when modeling concerned sys-            nication resource of each communication link and computation
+tems, such as [22]–[25]. In [24], the authors formulate the joint   resource at each network node are allocated to each service
+VNF placement and routing planning in dynamic SDSTNs as             on a per-time-slot basis. In addition, the joint VNF placement
+an integer linear programming problem based on TEG with             and routing planning problem is formulated to minimize
+the goal of minimizing communication resource consumption,          the average end-to-end service latency under dynamic flow
+and a branch-and-price algorithm is proposed. In [25], the          constraints and resource constraints of LEO satellites and
+authors use a TEG to model the VNF deployment problem as            ground nodes. Since the formulated problem is NP-hard, it
+a potential game and then propose a decentralized algorithm         is intractable to obtain optimal solutions through exhaustive
+to minimize the network payoff, which includes bandwidth            search. Therefore, we utilize Benders decomposition (BD)
+and energy consumption costs. In addition, the authors in           to decompose the primal problem into a master problem
+[26] propose a Tabu search-based VNF placement algorithm            and a subproblem. Benders cuts are generated by solving
+for randomly arrived services in STNs. This algorithm dy-           the subproblem, which helps tighten the solution space of
+namically adjusts the VNF placement strategy to maximize            the master problem iteratively. In addition, to obtain a low
+the service provider’s profit while addressing the end-to-end       complexity solution for practical use, a time expansion-based
+latency requirement of newly arrived service requests. To           heuristic algorithm is further proposed.
+minimize the transmission cost of computation tasks in time-           The contributions of this paper are summarized as follows.
+                                                                                                                                                                                3
+
+
+
+                                TABLE I                                                                                             Source node of service 2
+                                                                                                        VNF
+                          L IST OF NOTATIONS                                                                                                            VNF
+
+
+      Notation                       Description                                S1                              S2                            S3               VNF
+                                                                                                                           Slave Controller
+         G       The time-evolving graph of SDSTNs
+       N,N       The set and number of network nodes
+      Ns , N s   The set and number of satellites                                                S4                            S5                         S6
+      Ng , N g   The set and number of ground stations
+      Nu , N u   The set and number of ground users                                                                  VNF
+       L, L      The set and number of links
+      Lc , L c   The set and number of communication links                                                           U1
+      Ls , Ls    The set and number of stay links                               VNF                            Source node of service 1                            VNF
+         t
+       Rnm       Available transmission rate of link nm in time slot t
+                                                                                              G1                                                            G2
+       φtnm      Parameter indicates whether link nm is active
+                                                                                                                                      Master
+       dtnm      Distance of link nm in time slot t                                                                                  Controller
+       T, T      Time horizon and total number of time slots                                Destination node                                       Destination node
+                                                                                              of service 1                                           of service 2
+       t, τ      The t-th time slot in T and time slot length
+       Q, Q      The set and number of services
+                                                                                     Service 1             VNFs of service 1          Service 2            VNFs of service 2
+      Iq , Iq    The set and number of VNFs of service q
+      Lq , L q   The set and number of virtual links of service q              Traditional satellites       Software-defined satellites     Ground Stations      Ground Users
+        sq       The source node of service q
+        eq       The destination node of service q                          Fig. 1. An example of SDSTN topology.
+        cq       The computation resource requirement of service q
+        δq       The initial data size of service q                                                                                                                Space
+                 Computation resource consumption of i-th VNF                          S1             S2          S3           S6          G1           G2            U1
+        βiq
+                 of service q for deployment
+         ε       The computation resource for 1-bit data processing
+                 A binary variable that indicates whether                      t=1
+        xq,i
+         n
+                 i-th VNF of service q is deployed on node n
+        q,i,t    A binary variable that indicates whether
+       ynm                                                                     t=2
+                 i-th virtual link of service q passes through link nm
+
+
+                                                                               t=3
+
+  • The joint VNF placement and routing planning problem
+    is considered with the objective of minimizing average                     t=4
+    end-to-end service latency in SDSTNs, where TEG is
+    leveraged to model the dynamics of network topology and                    Time
+    availability of communication and computation resource.                          Service 1                 VNFs of service 1                   Communication link
+    Moreover, under the assumption that network resource                             Service 2                 VNFs of service 2                   Stay link
+    can be allocated among services on a per-time-slot basis,
+                                                                            Fig. 2. An example of the TEG model for SDSTNs.
+    enhanced flow conservation constraints are derived.
+  • Since the primal problem is an integer non-linear pro-
+    gramming (INLP), which is intractable to obtain optimal              provided in Section III, and the TEDG algorithm is proposed
+    solutions by exhaustive search, the primal problem is first          in Section IV. The performance evaluation and corresponding
+    converted into an integer linear programming (ILP) by in-            analyses are presented in Section V. Finally, Section VI con-
+    volving multiple auxiliary variables, and then an iterative          cludes this paper. For convenience, some important notations
+    Benders decomposition based branch-and-cut (BDBC)                    are listed in Table I.
+    algorithm is proposed to accelerate the acquisition of
+    optimal solutions. To further lower the computational                    II. S YSTEM M ODEL AND P ROBLEM F ORMULATION
+    complexity for practical use, a time expansion-based                    Fig. 1 illustrates an example topology of SDSTNs, which
+    decoupled greedy (TEDG) algorithm is designed.                       consists of a set of LEO satellites, ground stations, and ground
+  • We rigorously analyze the computational complexity of
+                                                                         users. Ground stations and ground users are able to establish
+    the TEDG algorithm with regard to the number of ser-                 connections with satellites within line of sight using STLs.
+    vices, operation time slots, and the number of network               Meanwhile, ground stations with computation resource are
+    nodes. Extensive simulations are conducted to evaluate               interconnected via optical fiber. LEO satellites can be cate-
+    the performance of both proposals, in terms of optimality            gorized as traditional satellites and software-defined satellites
+    and execution time. Moreover, it is shown that they                  equipped with computation resource capable of hosting VNFs,
+    can improve the performance of average service latency               and they communicate with each other via ISLs. A distributed
+    and meanwhile contribute to much more completed ser-                 master-slave controller architecture is adopted in this paper
+    vices within a configuration period compared to baseline             to realize timely network status awareness, based on which
+    schemes.                                                             VNF placement and routing planning are optimized. The
+  The remainder of this paper is organized as follows. System            configuration details of the controllers are omitted and can
+model and problem formulation are described in Section II.               be found in our previous work [9]. In the system model,
+Problem decomposition and optimal algorithm design are                   various types of end-to-end services exist, including services
+
