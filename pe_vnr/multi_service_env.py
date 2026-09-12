@@ -16,6 +16,7 @@ from .metrics import MetricsTracker, ReconfigurationRecord
 from .planner import MigrationPlan, MigrationPlanner
 from .risk_predictor import STRiskPredictor
 from .scenarios import DynamicSAGINScenario
+from .service_selector import AllRiskySelector, RiskAwareServiceSelector, ServiceSelectionRecord, TopRiskKSelector
 from .topology import RunningService, TimeVaryingTopology, edge_key
 from .workload import WorkloadEvent, generate_workload_trace
 
@@ -36,8 +37,11 @@ class MultiServiceConfig:
             raise ValueError("max_active_services must be positive")
         if not 2 <= self.min_virtual_nodes <= self.max_virtual_nodes <= 10:
             raise ValueError("virtual-node bounds must satisfy 2 <= min <= max <= 10")
-        if self.policy not in {"static", "reactive_full", "proactive_heuristic"}:
-            raise ValueError("policy must be static, reactive_full, or proactive_heuristic")
+        if self.policy not in {
+            "static", "reactive_full", "proactive_heuristic", "heuristic_all_risky",
+            "stgcn_all_risky", "stgcn_topk_heuristic",
+        }:
+            raise ValueError("unsupported multi-service policy")
 
 
 @dataclass
@@ -55,6 +59,10 @@ class MultiServiceStep:
     cpu_capacity_degradation: float
     bandwidth_capacity_degradation: float
     prediction_runtime_seconds: float
+    selector_candidate_services: int
+    selector_selected_services: int
+    selector_pending_services: int
+    active_pending_plans: int
     runtime_seconds: float
 
 
@@ -68,6 +76,7 @@ class MultiServiceDynamicEnv:
         config: Optional[MultiServiceConfig] = None,
         history_window: int = 4,
         workload: Optional[List[WorkloadEvent]] = None,
+        service_selector: Optional[RiskAwareServiceSelector] = None,
     ):
         self.scenario = scenario
         self.predictor = predictor
@@ -77,7 +86,8 @@ class MultiServiceDynamicEnv:
         self.config.validate()
         self.history_window = history_window
         self.time_step = history_window - 1
-        self.topology = TimeVaryingTopology([])
+        self.physical_topology = TimeVaryingTopology([])
+        self.residual_topology = TimeVaryingTopology([])
         self.services: Dict[str, RunningService] = {}
         self.metrics = MetricsTracker()
         self.arrivals = 0
@@ -96,6 +106,13 @@ class MultiServiceDynamicEnv:
         self._events_by_time: Dict[int, List[WorkloadEvent]] = {}
         self._index_workload_events()
         self._raw_current: Optional[nx.Graph] = None
+        self.selection_records: List[ServiceSelectionRecord] = []
+        if service_selector is not None:
+            self.service_selector = service_selector
+        elif self.config.policy == "stgcn_topk_heuristic":
+            self.service_selector = TopRiskKSelector()
+        else:
+            self.service_selector = AllRiskySelector()
         self._refresh_graph(rebuild_history=True)
 
     @property
@@ -109,16 +126,11 @@ class MultiServiceDynamicEnv:
         for service in self.active_services:
             self._reserve_service(graph, service)
         if rebuild_history:
-            history = []
-            for step in range(self.history_window):
-                snapshot = nx.Graph(self.scenario.snapshot(step))
-                if step == self.time_step:
-                    for service in self.active_services:
-                        self._reserve_service(snapshot, service)
-                history.append(snapshot)
-            self.topology = TimeVaryingTopology(history)
+            physical_history = [nx.Graph(self.scenario.snapshot(step)) for step in range(self.history_window)]
+            self.physical_topology = TimeVaryingTopology(physical_history)
         else:
-            self.topology.history.append(graph)
+            self.physical_topology.history.append(nx.Graph(raw))
+        self.residual_topology = TimeVaryingTopology([graph])
         return graph
 
     def _index_workload_events(self) -> None:
@@ -275,7 +287,6 @@ class MultiServiceDynamicEnv:
             return MigrationPlan(True, 0, "full", list(service.virtual_graph.nodes), list(service.virtual_graph.edges), 1.0, 0.0)
         if prediction is None:
             return None
-        observed = self.planner.plan(service, prediction)
         pending = self.pending_plans.get(service.service_id)
         if pending is not None:
             plan, due_time = pending
@@ -283,12 +294,21 @@ class MultiServiceDynamicEnv:
                 self.pending_plans.pop(service.service_id, None)
                 return plan
             return None
+        observed = self.planner.plan(service, prediction)
         if not observed.migrate:
             return None
         if observed.trigger_delay > 0:
             self.pending_plans[service.service_id] = (observed, self.time_step + observed.trigger_delay)
             return None
         return observed
+
+    def _uses_prediction(self) -> bool:
+        return self.config.auto_reconfigure and self.config.policy in {
+            "proactive_heuristic",
+            "heuristic_all_risky",
+            "stgcn_all_risky",
+            "stgcn_topk_heuristic",
+        }
 
     def step(self) -> MultiServiceStep:
         started = perf_counter()
@@ -312,14 +332,44 @@ class MultiServiceDynamicEnv:
         self.delay_sum += sum(float(record["delay"]) for record in health_records.values())
         prediction = None
         prediction_runtime = 0.0
-        if self.config.policy == "proactive_heuristic" and self.config.auto_reconfigure:
+        selection_records: List[ServiceSelectionRecord] = []
+        selected_service_ids: List[str] = []
+        selector_selected_count = 0
+        due_service_ids: List[str] = []
+        if self._uses_prediction():
             prediction_started = perf_counter()
-            prediction = self.predictor.predict(self.topology)
+            prediction = self.predictor.predict(self.physical_topology)
             prediction_runtime = perf_counter() - prediction_started
+            if self.config.policy == "proactive_heuristic":
+                # Preserve the original baseline: every active service reaches its planner.
+                selected_service_ids = [service.service_id for service in self.active_services]
+            else:
+                selection = self.service_selector.select(self.active_services, prediction, graph, self.pending_plans)
+                selection_records = selection.records
+                selected_service_ids = selection.selected_service_ids
+                selector_selected_count = len(selected_service_ids)
+            due_service_ids = [
+                service_id
+                for service_id, (_, due_time) in self.pending_plans.items()
+                if due_time <= self.time_step and service_id in self.services
+            ]
+            self.selection_records.extend(selection_records)
         for service in self.active_services:
             health = health_records[service.service_id]
             if health["sla_violated"]:
                 service.sla_violations += 1
+        if self.config.policy == "reactive_full":
+            service_order = [service.service_id for service in self.active_services]
+        else:
+            due_service_set = set(due_service_ids)
+            service_order = due_service_ids + [
+                service_id for service_id in selected_service_ids if service_id not in due_service_set
+            ]
+        for service_id in service_order:
+            service = self.services.get(service_id)
+            if service is None or service.status != "running":
+                continue
+            health = health_records[service.service_id]
             plan = self._plan_for_policy(service, prediction, health)
             if plan is not None:
                 reconfigurations += int(self._reconfigure(service, graph, prediction, plan, bool(health["sla_violated"])))
@@ -333,11 +383,19 @@ class MultiServiceDynamicEnv:
                 departures += 1
                 self.departures += 1
         # Rebuild the current snapshot after admissions, reconfigurations, and releases.
-        self.topology.history[-1] = nx.Graph(self.scenario.snapshot(self.time_step))
+        residual_graph = nx.Graph(self.scenario.snapshot(self.time_step))
         for service in self.active_services:
-            self._reserve_service(self.topology.history[-1], service)
+            self._reserve_service(residual_graph, service)
+        self.residual_topology = TimeVaryingTopology([residual_graph])
         utilization = self._resource_utilization()
-        record = MultiServiceStep(self.time_step, arrivals, admissions, departures, len(self.active_services), reconfigurations, sla_violations, unavailable_services, utilization["cpu"], utilization["bandwidth"], utilization["cpu_capacity_degradation"], utilization["bandwidth_capacity_degradation"], prediction_runtime, perf_counter() - started)
+        record = MultiServiceStep(
+            self.time_step, arrivals, admissions, departures, len(self.active_services), reconfigurations,
+            sla_violations, unavailable_services, utilization["cpu"], utilization["bandwidth"],
+            utilization["cpu_capacity_degradation"], utilization["bandwidth_capacity_degradation"],
+            prediction_runtime, sum(record.rank is not None for record in selection_records),
+            selector_selected_count, sum(record.has_pending_plan for record in selection_records),
+            len(self.pending_plans), perf_counter() - started,
+        )
         self.step_records.append(record)
         return record
 
@@ -350,6 +408,7 @@ class MultiServiceDynamicEnv:
         return {
             "steps": records,
             "services": {service_id: service.clone() for service_id, service in self.services.items()},
+            "selection_records": list(self.selection_records),
             "metrics": self.metrics.summary(),
             "arrivals": self.arrivals,
             "admissions": self.admissions,
@@ -367,6 +426,11 @@ class MultiServiceDynamicEnv:
             "avg_cpu_capacity_degradation": sum(record.cpu_capacity_degradation for record in records) / max(1, len(records)),
             "avg_bandwidth_capacity_degradation": sum(record.bandwidth_capacity_degradation for record in records) / max(1, len(records)),
             "prediction_runtime_seconds": sum(record.prediction_runtime_seconds for record in records),
+            "selector_candidate_count": sum(record.selector_candidate_services for record in records),
+            "selector_selected_count": sum(record.selector_selected_services for record in records),
+            "selector_pending_count": sum(record.selector_pending_services for record in records),
+            "avg_active_pending_plans": sum(record.active_pending_plans for record in records) / max(1, len(records)),
+            "max_active_pending_plans": max((record.active_pending_plans for record in records), default=0),
             "runtime_seconds": total_step_runtime,
             "avg_step_runtime_seconds": total_step_runtime / max(1, len(records)),
         }

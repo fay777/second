@@ -11,23 +11,55 @@ from pe_vnr.multi_service_env import MultiServiceConfig, MultiServiceDynamicEnv
 from pe_vnr.planner import MigrationPlanner
 from pe_vnr.risk_predictor import STRiskPredictor
 from pe_vnr.scenarios import DynamicSAGINScenario, ScenarioConfig
+from pe_vnr.service_selector import AllRiskySelector, TopRiskKSelector
 from pe_vnr.workload import generate_workload_trace
 
 
 def run_seed(seed: int, policy: str, args) -> dict:
     scenario = DynamicSAGINScenario(ScenarioConfig("sagin100", 100, 4), seed)
-    workload_config = MultiServiceConfig(args.arrival_probability, args.max_active_services, args.min_vnfs, args.max_vnfs)
+    workload_config = MultiServiceConfig(
+        arrival_probability=args.arrival_probability,
+        max_active_services=args.max_active_services,
+        min_virtual_nodes=args.min_vnfs,
+        max_virtual_nodes=args.max_vnfs,
+    )
     workload = generate_workload_trace(scenario, workload_config, start_time=3, steps=args.steps)
+    uses_stgcn = policy.startswith("stgcn_")
+    if uses_stgcn and args.stgcn_checkpoint is None:
+        raise ValueError("--stgcn-checkpoint is required for ST-GCN baselines.")
+    predictor = STRiskPredictor(
+        PredictorConfig(
+            use_learned_model=uses_stgcn,
+            history_window=4,
+            future_horizon=3,
+            checkpoint_path=str(args.stgcn_checkpoint) if uses_stgcn else None,
+            require_checkpoint=uses_stgcn,
+            device=args.device,
+        )
+    )
+    selector = (
+        TopRiskKSelector(args.selector_top_k, args.selector_risk_threshold, args.selector_peak_weight)
+        if policy == "stgcn_topk_heuristic"
+        else AllRiskySelector(args.selector_risk_threshold, args.selector_peak_weight)
+    )
     environment = MultiServiceDynamicEnv(
         scenario,
-        STRiskPredictor(PredictorConfig(use_learned_model=False, history_window=4, future_horizon=3)),
+        predictor,
         MigrationPlanner(PlanningConfig(node_risk_threshold=0.50, link_risk_threshold=0.52, full_migration_threshold=0.72, partial_ratio_threshold=0.34, max_trigger_delay=2)),
         ElasticReconfigurationExecutor(ExecutionConfig()),
-        MultiServiceConfig(args.arrival_probability, args.max_active_services, args.min_vnfs, args.max_vnfs, True, policy),
+        MultiServiceConfig(
+            arrival_probability=args.arrival_probability,
+            max_active_services=args.max_active_services,
+            min_virtual_nodes=args.min_vnfs,
+            max_virtual_nodes=args.max_vnfs,
+            auto_reconfigure=True,
+            policy=policy,
+        ),
         workload=workload,
+        service_selector=selector,
     )
     result = environment.run(args.steps)
-    environment_metrics = {key: value for key, value in result.items() if key not in {"steps", "services", "metrics"}}
+    environment_metrics = {key: value for key, value in result.items() if key not in {"steps", "services", "selection_records", "metrics"}}
     reconfiguration_metrics = {
         key if key not in environment_metrics else f"reconfig_{key}": value
         for key, value in result["metrics"].items()
@@ -49,12 +81,25 @@ def main() -> None:
     parser.add_argument("--max-active-services", type=int, default=20)
     parser.add_argument("--min-vnfs", type=int, default=2)
     parser.add_argument("--max-vnfs", type=int, default=10)
+    parser.add_argument(
+        "--policies",
+        default="static,reactive_full,proactive_heuristic",
+        help="Comma-separated policies: static, reactive_full, proactive_heuristic, heuristic_all_risky, stgcn_all_risky, stgcn_topk_heuristic.",
+    )
+    parser.add_argument("--stgcn-checkpoint", type=Path)
+    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--selector-top-k", type=int, default=1)
+    parser.add_argument("--selector-risk-threshold", type=float, default=0.50)
+    parser.add_argument("--selector-peak-weight", type=float, default=0.70)
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts/multiservice_baselines"))
     args = parser.parse_args()
     if args.seeds < 2:
         raise ValueError("Use at least two seeds to report mean and standard deviation.")
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    policies = ("static", "reactive_full", "proactive_heuristic")
+    policies = tuple(policy.strip() for policy in args.policies.split(",") if policy.strip())
+    supported = {"static", "reactive_full", "proactive_heuristic", "heuristic_all_risky", "stgcn_all_risky", "stgcn_topk_heuristic"}
+    if not policies or set(policies) - supported:
+        raise ValueError(f"Unsupported policy list: {args.policies}")
     rows = [run_seed(seed, policy, args) for seed in range(args.seeds) for policy in policies]
     metric_names = [name for name in rows[0] if name not in {"seed", "baseline"}]
     summaries = []
