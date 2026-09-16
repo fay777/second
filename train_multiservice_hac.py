@@ -298,6 +298,7 @@ def main():
         "stgcn_checkpoint": str(args.stgcn_checkpoint),
         "selector": "TopRiskKSelector",
         "selector_top_k": 1,
+        "hac_enforce_risk_reduction": False,
         "upper_state_dim": UPPER_STATE_DIM,
         "upper_action_dim": UPPER_ACTION_DIM,
         "lower_state_dim": LOWER_STATE_DIM,

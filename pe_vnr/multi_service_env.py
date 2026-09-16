@@ -30,6 +30,8 @@ class MultiServiceConfig:
     max_virtual_nodes: int = 10
     auto_reconfigure: bool = True
     policy: str = "proactive_heuristic"
+    # HAC optimizes risk as part of its reward; feasibility remains hard.
+    hac_enforce_risk_reduction: bool = False
 
     def validate(self) -> None:
         if not 0.0 <= self.arrival_probability <= 1.0:
@@ -293,7 +295,13 @@ class MultiServiceDynamicEnv:
         raw_bandwidth = sum(max(0.0, float(attrs.get("bandwidth", 0.0))) for _, _, attrs in self._raw_current.edges(data=True))
         released_cpu_ratio = sum(max(0.0, float(attrs.get("cpu", 0.0))) for _, attrs in graph.nodes(data=True)) / max(raw_cpu, 1e-6)
         released_bandwidth_ratio = sum(max(0.0, float(attrs.get("bandwidth", 0.0))) for _, _, attrs in graph.edges(data=True)) / max(raw_bandwidth, 1e-6)
-        result = self.hac_worker.execute_now(service, decision.scope, prediction, graph)
+        original_risk_gate = self.executor.config.enforce_risk_reduction
+        self.executor.config.enforce_risk_reduction = self.config.hac_enforce_risk_reduction
+        try:
+            result = self.hac_worker.execute_now(service, decision.scope, prediction, graph)
+        finally:
+            # Do not alter the acceptance semantics of reactive/heuristic baselines.
+            self.executor.config.enforce_risk_reduction = original_risk_gate
         outcome = result.outcome
         self.hac_stats["lower_decisions"] += result.lower_decisions
         if decision.scope != "link-only":
