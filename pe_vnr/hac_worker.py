@@ -48,6 +48,8 @@ class HACExecutionResult:
     lower_success: bool
     routing_success: bool
     lower_trace: List["LowerTransition"] = field(default_factory=list)
+    failure_stage: str = "unknown"
+    candidate_counts: List[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -272,10 +274,31 @@ class MultiServiceHACWorkerAdapter:
         reason: str,
         plan: Optional[MigrationPlan] = None,
         lower_trace: Optional[List[LowerTransition]] = None,
+        failure_stage: str = "unknown",
+        candidate_counts: Optional[List[int]] = None,
+        lower_success: bool = False,
     ) -> HACExecutionResult:
         risk = self._deployment_risk(service, node_risk, link_risk)
         outcome = ExecutionOutcome(service.deployment.clone(), False, reason, risk, risk, 0, 0, 0.0, 0.0)
-        return HACExecutionResult(plan, outcome, len(lower_trace or []), False, False, list(lower_trace or []))
+        return HACExecutionResult(
+            plan, outcome, len(lower_trace or []), lower_success, False,
+            list(lower_trace or []), failure_stage, list(candidate_counts or []),
+        )
+
+    @staticmethod
+    def _failure_stage(error: Exception) -> str:
+        message = str(error)
+        if "No feasible host" in message:
+            return "no_candidate_host"
+        if "Fixed node" in message:
+            return "fixed_node_infeasible"
+        if "Preserved path" in message:
+            return "preserved_path_infeasible"
+        if "No feasible physical path" in message:
+            return "no_feasible_route"
+        if "Lower policy selected" in message:
+            return "invalid_lower_action"
+        return "lower_step_infeasible"
 
     def execute_now(
         self,
@@ -289,6 +312,8 @@ class MultiServiceHACWorkerAdapter:
         expected_node, expected_link = physical_prediction.expected_risk_maps()
         plan = self.execution_plan(service, scope, physical_prediction)
         lower_trace: List[LowerTransition] = []
+        candidate_counts: List[int] = []
+        placement_completed = False
         try:
             if scope == "link-only":
                 outcome = self.executor.execute_with_outcome(
@@ -298,7 +323,7 @@ class MultiServiceHACWorkerAdapter:
                     expected_node,
                     expected_link,
                 )
-                return HACExecutionResult(plan, outcome, 0, True, True, [])
+                return HACExecutionResult(plan, outcome, 0, True, True, [], outcome.reason, [])
             execution_env = ExecutionEnv()
             observation = execution_env.reset(
                 released_residual_graph,
@@ -309,6 +334,7 @@ class MultiServiceHACWorkerAdapter:
             )
             lower_decisions = 0
             while observation is not None:
+                candidate_counts.append(len(observation.candidate_nodes))
                 action = self._lower_action(observation, lower_action_fn)
                 if not 0 <= action < len(observation.candidate_nodes):
                     raise ValueError("Lower policy selected an infeasible candidate index.")
@@ -337,8 +363,12 @@ class MultiServiceHACWorkerAdapter:
                     )
                 observation = next_observation
                 lower_decisions += 1
+            placement_completed = True
             if execution_env.graph is None:
-                return self._failure(service, expected_node, expected_link, "missing-execution-graph", plan, lower_trace)
+                return self._failure(
+                    service, expected_node, expected_link, "missing-execution-graph", plan,
+                    lower_trace, "missing_execution_graph", candidate_counts, placement_completed,
+                )
             deployment = self.executor.route_links(
                 execution_env.graph,
                 service,
@@ -348,6 +378,12 @@ class MultiServiceHACWorkerAdapter:
                 set(plan.target_v_links),
             )
             outcome = self.executor.assess_deployment(service, deployment, expected_node, expected_link)
-            return HACExecutionResult(plan, outcome, lower_decisions, True, True, lower_trace)
-        except (RuntimeError, ValueError):
-            return self._failure(service, expected_node, expected_link, "lower-or-routing-infeasible", plan, lower_trace)
+            return HACExecutionResult(
+                plan, outcome, lower_decisions, True, True, lower_trace,
+                outcome.reason, candidate_counts,
+            )
+        except (RuntimeError, ValueError) as error:
+            return self._failure(
+                service, expected_node, expected_link, str(error), plan, lower_trace,
+                self._failure_stage(error), candidate_counts, placement_completed,
+            )

@@ -3,7 +3,7 @@
 import argparse
 import json
 import random
-from collections import deque
+from collections import Counter, deque
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -181,6 +181,7 @@ def main():
     lower_opt = torch.optim.Adam(lower.parameters(), lr=args.lr)
     args.output.mkdir(parents=True, exist_ok=True)
     history = []
+    execution_audit = []
 
     for episode in range(args.episodes):
         upper_records, lower_records = [], []
@@ -214,6 +215,8 @@ def main():
         lower_loss = update_policy(lower, lower_opt, lower_trajectories, args.gamma)
         execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
         upper_action_count = max(1, len(upper_records))
+        execution_events = [event for event in result["hac_events"] if event.execution is not None]
+        stage_counts = Counter(event.execution.failure_stage for event in execution_events)
         row = {
             "episode": episode,
             "seed": seed,
@@ -245,11 +248,30 @@ def main():
             "keep_rate": result["upper_keep_count"] / upper_action_count,
             "execution_success_rate": result["metrics"]["migrations"] / max(1, execution_attempts),
             "rollback_rate": result["rollback_count"] / max(1, execution_attempts),
+            **{f"execution_stage_{stage}": count for stage, count in sorted(stage_counts.items())},
             **{f"reward_{name}": value for name, value in reward_totals.items()},
         }
         for name, value in reward_totals.items():
             row[f"reward_{name}_per_upper"] = value / upper_action_count
         history.append(row)
+        for event in execution_events:
+            execution_audit.append({
+                "episode": episode,
+                "seed": seed,
+                "time_step": event.time_step,
+                "service_id": event.service_id,
+                "scope": event.decision.scope,
+                "event_type": event.event_type,
+                "failure_stage": event.execution.failure_stage,
+                "migrated": event.execution.outcome.migrated,
+                "accepted": event.execution.outcome.accepted,
+                "target_vnodes": len(event.execution.plan.target_v_nodes) if event.execution.plan else 0,
+                "candidate_counts": event.execution.candidate_counts,
+                "released_cpu_ratio": event.released_cpu_ratio,
+                "released_bandwidth_ratio": event.released_bandwidth_ratio,
+                "pre_risk": event.execution.outcome.pre_risk,
+                "post_risk": event.execution.outcome.post_risk,
+            })
         print(
             f"episode={episode:03d} upper_loss={upper_loss:.4f} lower_loss={lower_loss:.4f} "
             f"sla={row['sla_violation_rate']:.4f} migrations={row['migrations']} reward={row['reward_total']:.3f}"
@@ -265,6 +287,7 @@ def main():
                 f"full={row['scope_full_count']} | lower: ok={row['lower_success']} fail={row['lower_failure']} "
                 f"routing_fail={row['routing_failure']} rollback={row['rollback_count']}"
             )
+            print(f"  execution stages: {dict(sorted(stage_counts.items()))}")
             print(
                 f"  reward: risk={row['reward_risk']:+.3f} cost={row['reward_cost']:+.3f} "
                 f"disruption={row['reward_disruption']:+.3f} sla={row['reward_sla']:+.3f} "
@@ -291,6 +314,7 @@ def main():
     torch.save({"state_dict": lower.state_dict(), **metadata}, args.output / "lower.pt")
     (args.output / "training_history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
     (args.output / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    (args.output / "execution_audit.json").write_text(json.dumps(execution_audit, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

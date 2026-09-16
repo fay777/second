@@ -48,6 +48,7 @@ class ExecutionEnv:
                     and float(attrs.get("available", 1.0)) > 0.0
                     and float(attrs.get("energy", 1.0)) > 0.05
                     and node_id != self.service.deployment.node_mapping.get(v_node_id)
+                    and self._mapped_neighbor_paths_feasible(v_node_id, node_id)
                 )
             ],
             key=lambda node_id: (
@@ -56,6 +57,39 @@ class ExecutionEnv:
                 float(self.graph.nodes[node_id].get("queue", 0.0)),
             ),
         )
+
+    def _mapped_neighbor_paths_feasible(self, v_node_id: int, candidate_node: int) -> bool:
+        """Filter hosts that cannot reach any already mapped virtual neighbor.
+
+        Routing remains deterministic and is not an AC action.  This only masks
+        candidates that are provably infeasible under current BW/visibility.
+        """
+        assert self.graph is not None and self.service is not None
+        for neighbor in self.service.virtual_graph.neighbors(v_node_id):
+            neighbor_node = self.node_mapping.get(neighbor)
+            if neighbor_node is None:
+                continue
+            demand = float(self.service.virtual_graph.edges[v_node_id, neighbor].get("bandwidth", 0.0))
+            feasible_graph = nx.Graph()
+            feasible_graph.add_nodes_from(
+                node_id
+                for node_id, attrs in self.graph.nodes(data=True)
+                if float(attrs.get("fault", 0.0)) < 1.0 and float(attrs.get("available", 1.0)) > 0.0
+            )
+            feasible_graph.add_edges_from(
+                (u, v)
+                for u, v, attrs in self.graph.edges(data=True)
+                if (
+                    u in feasible_graph
+                    and v in feasible_graph
+                    and float(attrs.get("fault", 0.0)) < 1.0
+                    and float(attrs.get("bandwidth", 0.0)) >= demand
+                    and float(attrs.get("visible_time", 1.0)) > 0.0
+                )
+            )
+            if not nx.has_path(feasible_graph, candidate_node, neighbor_node):
+                return False
+        return True
 
     def _risk_exposure(self, node_id: int) -> float:
         future = [risk.get(node_id, 0.0) for risk in self.future_node_risk]

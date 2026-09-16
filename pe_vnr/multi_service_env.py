@@ -77,6 +77,8 @@ class HACWorkerEvent:
     event_type: str
     origin_decision_id: int
     post_sla_violated: Optional[bool] = None
+    released_cpu_ratio: float = 0.0
+    released_bandwidth_ratio: float = 0.0
 
 
 class MultiServiceDynamicEnv:
@@ -287,6 +289,10 @@ class MultiServiceDynamicEnv:
         """Release → decide → validate → commit/rollback for one HAC service."""
         assert self.hac_worker is not None
         self._release_service(graph, service)
+        raw_cpu = sum(max(0.0, float(attrs.get("cpu", 0.0))) for _, attrs in self._raw_current.nodes(data=True))
+        raw_bandwidth = sum(max(0.0, float(attrs.get("bandwidth", 0.0))) for _, _, attrs in self._raw_current.edges(data=True))
+        released_cpu_ratio = sum(max(0.0, float(attrs.get("cpu", 0.0))) for _, attrs in graph.nodes(data=True)) / max(raw_cpu, 1e-6)
+        released_bandwidth_ratio = sum(max(0.0, float(attrs.get("bandwidth", 0.0))) for _, _, attrs in graph.edges(data=True)) / max(raw_bandwidth, 1e-6)
         result = self.hac_worker.execute_now(service, decision.scope, prediction, graph)
         outcome = result.outcome
         self.hac_stats["lower_decisions"] += result.lower_decisions
@@ -309,6 +315,7 @@ class MultiServiceDynamicEnv:
         self.hac_events.append(HACWorkerEvent(
             self.time_step, service.service_id, decision, result, sla_violated,
             event_type, decision.decision_id, post_sla_violated,
+            released_cpu_ratio, released_bandwidth_ratio,
         ))
         return outcome.migrated
 
