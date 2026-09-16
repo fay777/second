@@ -105,6 +105,25 @@ class MultiServiceHACWorkerAdapter:
     def _deployment_risk(service: RunningService, node_risk: Dict[int, float], link_risk: Dict) -> float:
         return ElasticReconfigurationExecutor.deployment_risk(service.deployment, node_risk, link_risk)
 
+    @staticmethod
+    def _link_only_nodes_feasible(service: RunningService, residual_graph: nx.Graph) -> bool:
+        """A link-only action cannot repair a host whose dynamic capacity failed."""
+        for v_node, physical_node in service.deployment.node_mapping.items():
+            if not residual_graph.has_node(physical_node):
+                return False
+            attrs = residual_graph.nodes[physical_node]
+            own_demand = float(service.virtual_graph.nodes[v_node].get("cpu", 0.0))
+            # The current residual graph includes this service's reservation.
+            released_cpu = float(attrs.get("cpu", 0.0)) + own_demand
+            if (
+                released_cpu < own_demand
+                or float(attrs.get("fault", 0.0)) >= 1.0
+                or float(attrs.get("available", 1.0)) <= 0.0
+                or float(attrs.get("energy", 1.0)) <= 0.05
+            ):
+                return False
+        return True
+
     def upper_observation(
         self,
         service: RunningService,
@@ -167,10 +186,13 @@ class MultiServiceHACWorkerAdapter:
         # Upper HAC must decide scope itself. Target localization happens later.
         mask = np.zeros_like(observation.action_mask)
         mask[self.planning_env.encode_action(0, 0, 0)] = True
+        link_only_feasible = self._link_only_nodes_feasible(service, residual_graph)
         for delay_value in range(self.planning_env.max_delay + 1):
             if delay_value >= service.remaining_lifetime:
                 continue
             for scope_index in range(len(self.planning_env.scopes)):
+                if self.planning_env.scopes[scope_index] == "link-only" and not link_only_feasible:
+                    continue
                 mask[self.planning_env.encode_action(1, delay_value, scope_index)] = True
         return PlanningObservation(state=observation.state, action_mask=mask)
 
@@ -189,6 +211,7 @@ class MultiServiceHACWorkerAdapter:
         service: RunningService,
         prediction: RiskPrediction,
         scope: str,
+        residual_graph: Optional[nx.Graph] = None,
     ) -> MigrationPlan:
         expected_node, expected_link = prediction.expected_risk_maps()
         future_nodes = prediction.future_node_risk or [expected_node]
@@ -211,7 +234,22 @@ class MultiServiceHACWorkerAdapter:
             node_targets: List[int] = []
             link_targets = link_rank[:1] if link_rank else []
         elif scope == "partial":
-            node_targets = node_rank[: max(1, ceil(len(node_rank) * self.partial_fraction))]
+            target_count = max(1, ceil(len(node_rank) * self.partial_fraction))
+            mandatory_targets = []
+            if residual_graph is not None:
+                for v_node, physical_node in service.deployment.node_mapping.items():
+                    demand = float(service.virtual_graph.nodes[v_node].get("cpu", 0.0))
+                    attrs = residual_graph.nodes[physical_node] if residual_graph.has_node(physical_node) else {}
+                    # A partial plan may not keep a VNF on a host that has already
+                    # become infeasible after dynamic capacity/fault updates.
+                    if (
+                        not residual_graph.has_node(physical_node)
+                        or float(attrs.get("cpu", 0.0)) < demand
+                        or float(attrs.get("fault", 0.0)) >= 1.0
+                        or float(attrs.get("available", 1.0)) <= 0.0
+                    ):
+                        mandatory_targets.append(v_node)
+            node_targets = list(dict.fromkeys(mandatory_targets + node_rank))[:max(target_count, len(mandatory_targets))]
             target_set = set(node_targets)
             link_targets = [v_link for v_link in service.virtual_graph.edges if set(v_link) & target_set]
         elif scope == "full":
@@ -251,8 +289,9 @@ class MultiServiceHACWorkerAdapter:
         service: RunningService,
         scope: str,
         physical_prediction: RiskPrediction,
+        released_residual_graph: Optional[nx.Graph] = None,
     ) -> MigrationPlan:
-        return self._localize_scope(service, physical_prediction, scope)
+        return self._localize_scope(service, physical_prediction, scope, released_residual_graph)
 
     def _lower_action(self, observation, lower_action_fn: Optional[LowerPolicy] = None) -> int:
         if lower_action_fn is not None:
@@ -310,7 +349,7 @@ class MultiServiceHACWorkerAdapter:
     ) -> HACExecutionResult:
         """Execute using the latest released residual graph; never mutate its owner."""
         expected_node, expected_link = physical_prediction.expected_risk_maps()
-        plan = self.execution_plan(service, scope, physical_prediction)
+        plan = self.execution_plan(service, scope, physical_prediction, released_residual_graph)
         lower_trace: List[LowerTransition] = []
         candidate_counts: List[int] = []
         placement_completed = False
