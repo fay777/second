@@ -37,7 +37,9 @@ class MetricsTracker:
                 "avg_risk": 0.0,
                 "avg_estimated_cost": 0.0,
                 "avg_realized_cost": 0.0,
+                "total_realized_cost": 0.0,
                 "avg_disruption": 0.0,
+                "total_disruption": 0.0,
                 "avg_post_risk": 0.0,
                 "avg_risk_reduction": 0.0,
                 "accepted_reconfigurations": 0.0,
@@ -45,6 +47,8 @@ class MetricsTracker:
                 "link_reroutes": 0.0,
                 "avg_node_migration_cost": 0.0,
                 "avg_link_reroute_cost": 0.0,
+                "total_node_migration_cost": 0.0,
+                "total_link_reroute_cost": 0.0,
                 "sla_violations": 0.0,
             }
         count = len(self.records)
@@ -54,7 +58,9 @@ class MetricsTracker:
             "avg_risk": sum(record.risk_score for record in self.records) / count,
             "avg_estimated_cost": sum(record.estimated_cost for record in self.records) / count,
             "avg_realized_cost": sum(record.realized_cost for record in self.records) / count,
+            "total_realized_cost": sum(record.realized_cost for record in self.records),
             "avg_disruption": sum(record.disruption_time for record in self.records) / count,
+            "total_disruption": sum(record.disruption_time for record in self.records),
             "avg_post_risk": sum(record.post_risk for record in self.records) / count,
             "avg_risk_reduction": sum(record.risk_reduction for record in self.records) / count,
             "accepted_reconfigurations": float(sum(1 for record in self.records if record.accepted)),
@@ -62,5 +68,7 @@ class MetricsTracker:
             "link_reroutes": float(sum(record.link_reroutes for record in self.records)),
             "avg_node_migration_cost": sum(record.node_migration_cost for record in self.records) / count,
             "avg_link_reroute_cost": sum(record.link_reroute_cost for record in self.records) / count,
+            "total_node_migration_cost": sum(record.node_migration_cost for record in self.records),
+            "total_link_reroute_cost": sum(record.link_reroute_cost for record in self.records),
             "sla_violations": float(sum(1 for record in self.records if record.sla_violated)),
         }

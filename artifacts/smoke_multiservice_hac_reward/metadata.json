@@ -1,0 +1,28 @@
+{
+  "stgcn_checkpoint": "artifacts\\stgcn_h3\\stgcn_best.pt",
+  "selector": "TopRiskKSelector",
+  "selector_top_k": 1,
+  "upper_state_dim": 17,
+  "upper_action_dim": 24,
+  "lower_state_dim": 9,
+  "lower_candidate_dim": 7,
+  "reward_components": [
+    "risk",
+    "cost",
+    "disruption",
+    "sla",
+    "future_sla",
+    "failure"
+  ],
+  "future_sla_horizon": 3,
+  "arguments": {
+    "stgcn_checkpoint": "artifacts\\stgcn_h3\\stgcn_best.pt",
+    "episodes": 1,
+    "steps": 50,
+    "seed": 0,
+    "lr": 0.0003,
+    "gamma": 0.99,
+    "device": "cpu",
+    "output": "artifacts\\smoke_multiservice_hac_reward"
+  }
+}

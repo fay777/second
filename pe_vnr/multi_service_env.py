@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 import networkx as nx
 
 from .executor import ElasticReconfigurationExecutor
+from .hac_worker import HACDecision, HACExecutionResult, MultiServiceHACWorkerAdapter, PendingHACDecision
 from .metrics import MetricsTracker, ReconfigurationRecord
 from .planner import MigrationPlan, MigrationPlanner
 from .risk_predictor import STRiskPredictor
@@ -39,7 +40,7 @@ class MultiServiceConfig:
             raise ValueError("virtual-node bounds must satisfy 2 <= min <= max <= 10")
         if self.policy not in {
             "static", "reactive_full", "proactive_heuristic", "heuristic_all_risky",
-            "stgcn_all_risky", "stgcn_topk_heuristic",
+            "stgcn_all_risky", "stgcn_topk_heuristic", "stgcn_topk_hac",
         }:
             raise ValueError("unsupported multi-service policy")
 
@@ -66,6 +67,18 @@ class MultiServiceStep:
     runtime_seconds: float
 
 
+@dataclass
+class HACWorkerEvent:
+    time_step: int
+    service_id: str
+    decision: HACDecision
+    execution: Optional[HACExecutionResult]
+    sla_violated: bool
+    event_type: str
+    origin_decision_id: int
+    post_sla_violated: Optional[bool] = None
+
+
 class MultiServiceDynamicEnv:
     def __init__(
         self,
@@ -77,6 +90,7 @@ class MultiServiceDynamicEnv:
         history_window: int = 4,
         workload: Optional[List[WorkloadEvent]] = None,
         service_selector: Optional[RiskAwareServiceSelector] = None,
+        hac_worker: Optional[MultiServiceHACWorkerAdapter] = None,
     ):
         self.scenario = scenario
         self.predictor = predictor
@@ -101,6 +115,32 @@ class MultiServiceDynamicEnv:
         self.delay_sum = 0.0
         self.step_records: List[MultiServiceStep] = []
         self.pending_plans: Dict[str, tuple] = {}
+        self.pending_hac_decisions: Dict[str, PendingHACDecision] = {}
+        self.hac_worker = hac_worker
+        if self.config.policy == "stgcn_topk_hac" and self.hac_worker is None:
+            raise ValueError("stgcn_topk_hac requires a MultiServiceHACWorkerAdapter.")
+        self.hac_stats = {
+            "upper_keep_count": 0,
+            "upper_immediate_count": 0,
+            "upper_delayed_count": 0,
+            "scope_link_only_count": 0,
+            "scope_partial_count": 0,
+            "scope_full_count": 0,
+            "pending_created": 0,
+            "pending_executed": 0,
+            "pending_cancelled": 0,
+            "lower_decisions": 0,
+            "lower_success": 0,
+            "lower_failure": 0,
+            "routing_success": 0,
+            "routing_failure": 0,
+            "rollback_count": 0,
+        }
+        self.hac_events: List[HACWorkerEvent] = []
+        # Pre-action service health is retained so trainers can evaluate KEEP
+        # against the observed ST-GCN horizon instead of only its current slot.
+        self.service_sla_history: Dict[tuple, bool] = {}
+        self._next_hac_decision_id = 0
         self.workload_events = list(workload or [])
         self._workload_provided = workload is not None
         self._events_by_time: Dict[int, List[WorkloadEvent]] = {}
@@ -109,7 +149,7 @@ class MultiServiceDynamicEnv:
         self.selection_records: List[ServiceSelectionRecord] = []
         if service_selector is not None:
             self.service_selector = service_selector
-        elif self.config.policy == "stgcn_topk_heuristic":
+        elif self.config.policy in {"stgcn_topk_heuristic", "stgcn_topk_hac"}:
             self.service_selector = TopRiskKSelector()
         else:
             self.service_selector = AllRiskySelector()
@@ -137,6 +177,9 @@ class MultiServiceDynamicEnv:
         self._events_by_time = {}
         for event in self.workload_events:
             self._events_by_time.setdefault(event.time_step, []).append(event)
+
+    def _pending_service_map(self) -> Dict[str, object]:
+        return {**self.pending_plans, **self.pending_hac_decisions}
 
     @staticmethod
     def _reserve_service(graph: nx.Graph, service: RunningService) -> None:
@@ -232,6 +275,43 @@ class MultiServiceDynamicEnv:
         self._record_reconfiguration(service, plan, outcome, sla_violated)
         return outcome.migrated
 
+    def _reconfigure_hac(
+        self,
+        service: RunningService,
+        graph: nx.Graph,
+        prediction,
+        decision: HACDecision,
+        sla_violated: bool,
+        event_type: str,
+    ) -> bool:
+        """Release → decide → validate → commit/rollback for one HAC service."""
+        assert self.hac_worker is not None
+        self._release_service(graph, service)
+        result = self.hac_worker.execute_now(service, decision.scope, prediction, graph)
+        outcome = result.outcome
+        self.hac_stats["lower_decisions"] += result.lower_decisions
+        if decision.scope != "link-only":
+            self.hac_stats["lower_success" if result.lower_success else "lower_failure"] += 1
+        self.hac_stats["routing_success" if result.routing_success else "routing_failure"] += 1
+        if outcome.migrated:
+            service.deployment = outcome.deployment
+            service.migration_count += 1
+            service.migrated_virtual_nodes += outcome.node_migrations
+            service.rerouted_virtual_links += outcome.link_reroutes
+            service.disruption_time += 0.5 if decision.scope == "link-only" else 1.0
+        else:
+            self.hac_stats["rollback_count"] += 1
+        # Commit the new reservation or roll back the old deployment atomically.
+        self._reserve_service(graph, service)
+        plan = result.plan or MigrationPlan(True, 0, decision.scope, [], [], 0.0, 0.0)
+        self._record_reconfiguration(service, plan, outcome, sla_violated)
+        post_sla_violated = bool(self._service_health(service, graph)["sla_violated"])
+        self.hac_events.append(HACWorkerEvent(
+            self.time_step, service.service_id, decision, result, sla_violated,
+            event_type, decision.decision_id, post_sla_violated,
+        ))
+        return outcome.migrated
+
     @staticmethod
     def _service_health(service: RunningService, graph: nx.Graph) -> Dict[str, object]:
         delay = 0.0
@@ -308,6 +388,7 @@ class MultiServiceDynamicEnv:
             "heuristic_all_risky",
             "stgcn_all_risky",
             "stgcn_topk_heuristic",
+            "stgcn_topk_hac",
         }
 
     def step(self) -> MultiServiceStep:
@@ -323,6 +404,8 @@ class MultiServiceDynamicEnv:
             else:
                 self.rejected_admissions += 1
         health_records = {service.service_id: self._service_health(service, graph) for service in self.active_services}
+        for service_id, health in health_records.items():
+            self.service_sla_history[(self.time_step, service_id)] = bool(health["sla_violated"])
         sla_violations = sum(int(record["sla_violated"]) for record in health_records.values())
         unavailable_services = sum(int(record["unavailable"]) for record in health_records.values())
         self.service_slots += len(health_records)
@@ -344,7 +427,7 @@ class MultiServiceDynamicEnv:
                 # Preserve the original baseline: every active service reaches its planner.
                 selected_service_ids = [service.service_id for service in self.active_services]
             else:
-                selection = self.service_selector.select(self.active_services, prediction, graph, self.pending_plans)
+                selection = self.service_selector.select(self.active_services, prediction, graph, self._pending_service_map())
                 selection_records = selection.records
                 selected_service_ids = selection.selected_service_ids
                 selector_selected_count = len(selected_service_ids)
@@ -353,6 +436,11 @@ class MultiServiceDynamicEnv:
                 for service_id, (_, due_time) in self.pending_plans.items()
                 if due_time <= self.time_step and service_id in self.services
             ]
+            due_service_ids.extend(
+                service_id
+                for service_id, pending in self.pending_hac_decisions.items()
+                if pending.due_time <= self.time_step and service_id in self.services
+            )
             self.selection_records.extend(selection_records)
         for service in self.active_services:
             health = health_records[service.service_id]
@@ -370,6 +458,33 @@ class MultiServiceDynamicEnv:
             if service is None or service.status != "running":
                 continue
             health = health_records[service.service_id]
+            if self.config.policy == "stgcn_topk_hac":
+                assert self.hac_worker is not None and prediction is not None
+                pending = self.pending_hac_decisions.pop(service_id, None)
+                if pending is not None:
+                    decision = HACDecision(-1, True, 0, pending.scope, None, None, pending.decision_id)
+                    self.hac_stats["pending_executed"] += 1
+                    reconfigurations += int(self._reconfigure_hac(service, graph, prediction, decision, bool(health["sla_violated"]), "pending_execution"))
+                    continue
+                decision_id = self._next_hac_decision_id
+                self._next_hac_decision_id += 1
+                decision = self.hac_worker.upper_decide(service, prediction, graph, self._raw_current, decision_id=decision_id)
+                if not decision.migrate:
+                    self.hac_stats["upper_keep_count"] += 1
+                    self.hac_events.append(HACWorkerEvent(self.time_step, service.service_id, decision, None, bool(health["sla_violated"]), "upper_decision", decision_id))
+                    continue
+                self.hac_stats[f"scope_{decision.scope.replace('-', '_')}_count"] += 1
+                if decision.delay > 0:
+                    self.pending_hac_decisions[service_id] = PendingHACDecision(
+                        service_id, self.time_step + decision.delay, decision.scope, self.time_step, decision_id
+                    )
+                    self.hac_stats["upper_delayed_count"] += 1
+                    self.hac_stats["pending_created"] += 1
+                    self.hac_events.append(HACWorkerEvent(self.time_step, service.service_id, decision, None, bool(health["sla_violated"]), "upper_decision", decision_id))
+                    continue
+                self.hac_stats["upper_immediate_count"] += 1
+                reconfigurations += int(self._reconfigure_hac(service, graph, prediction, decision, bool(health["sla_violated"]), "upper_decision"))
+                continue
             plan = self._plan_for_policy(service, prediction, health)
             if plan is not None:
                 reconfigurations += int(self._reconfigure(service, graph, prediction, plan, bool(health["sla_violated"])))
@@ -380,6 +495,9 @@ class MultiServiceDynamicEnv:
                 service.status = "completed"
                 del self.services[service_id]
                 self.pending_plans.pop(service_id, None)
+                if service_id in self.pending_hac_decisions:
+                    self.pending_hac_decisions.pop(service_id, None)
+                    self.hac_stats["pending_cancelled"] += 1
                 departures += 1
                 self.departures += 1
         # Rebuild the current snapshot after admissions, reconfigurations, and releases.
@@ -394,7 +512,7 @@ class MultiServiceDynamicEnv:
             utilization["cpu_capacity_degradation"], utilization["bandwidth_capacity_degradation"],
             prediction_runtime, sum(record.rank is not None for record in selection_records),
             selector_selected_count, sum(record.has_pending_plan for record in selection_records),
-            len(self.pending_plans), perf_counter() - started,
+            len(self._pending_service_map()), perf_counter() - started,
         )
         self.step_records.append(record)
         return record
@@ -409,6 +527,8 @@ class MultiServiceDynamicEnv:
             "steps": records,
             "services": {service_id: service.clone() for service_id, service in self.services.items()},
             "selection_records": list(self.selection_records),
+            "hac_events": list(self.hac_events),
+            "service_sla_history": dict(self.service_sla_history),
             "metrics": self.metrics.summary(),
             "arrivals": self.arrivals,
             "admissions": self.admissions,
@@ -431,6 +551,7 @@ class MultiServiceDynamicEnv:
             "selector_pending_count": sum(record.selector_pending_services for record in records),
             "avg_active_pending_plans": sum(record.active_pending_plans for record in records) / max(1, len(records)),
             "max_active_pending_plans": max((record.active_pending_plans for record in records), default=0),
+            **self.hac_stats,
             "runtime_seconds": total_step_runtime,
             "avg_step_runtime_seconds": total_step_runtime / max(1, len(records)),
         }
