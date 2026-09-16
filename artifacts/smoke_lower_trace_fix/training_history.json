@@ -1,0 +1,24 @@
+[
+  {
+    "episode": 0,
+    "seed": 100,
+    "upper_loss": 0.6290448904037476,
+    "lower_loss": 0.6317834854125977,
+    "upper_actions": 14,
+    "lower_actions": 45,
+    "lower_executions": 7,
+    "sla_violation_rate": 0.8656716417910447,
+    "availability": 0.9791044776119403,
+    "admission_rate": 1.0,
+    "migrations": 0.0,
+    "total_realized_cost": 0.0,
+    "total_disruption": 0.0,
+    "reward_risk": 0.0,
+    "reward_cost": 0.0,
+    "reward_disruption": 0.0,
+    "reward_sla": -11.0,
+    "reward_future_sla": -1.0,
+    "reward_failure": -11.0,
+    "reward_total": -23.0
+  }
+]

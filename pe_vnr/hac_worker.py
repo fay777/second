@@ -310,16 +310,31 @@ class MultiServiceHACWorkerAdapter:
             lower_decisions = 0
             while observation is not None:
                 action = self._lower_action(observation, lower_action_fn)
-                next_observation, done, info = execution_env.step(action)
+                if not 0 <= action < len(observation.candidate_nodes):
+                    raise ValueError("Lower policy selected an infeasible candidate index.")
+                virtual_node = execution_env.pending_v_nodes[execution_env.cursor]
+                physical_node = observation.candidate_nodes[action]
+                # Record the sampled action before step() asks for the next VNF.
+                # That lookup can fail when no later feasible host remains, but the
+                # current policy decision still requires terminal credit.
                 lower_trace.append(
                     LowerTransition(
                         observation=observation,
                         action=action,
-                        virtual_node=int(info["virtual_node"]),
-                        physical_node=int(info["physical_node"]),
-                        done=done,
+                        virtual_node=int(virtual_node),
+                        physical_node=int(physical_node),
+                        done=False,
                     )
                 )
+                next_observation, done, _ = execution_env.step(action)
+                if done:
+                    lower_trace[-1] = LowerTransition(
+                        observation=observation,
+                        action=action,
+                        virtual_node=int(virtual_node),
+                        physical_node=int(physical_node),
+                        done=True,
+                    )
                 observation = next_observation
                 lower_decisions += 1
             if execution_env.graph is None:
