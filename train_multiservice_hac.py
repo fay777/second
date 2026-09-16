@@ -163,6 +163,7 @@ def main():
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--diagnostic", action="store_true", help="Print HAC action and reward-component diagnostics per episode.")
     parser.add_argument("--output", type=Path, default=Path("artifacts/multiservice_hac"))
     args = parser.parse_args()
     if args.episodes < 1 or args.steps < 1:
@@ -211,6 +212,8 @@ def main():
         )
         upper_loss = update_policy(upper, upper_opt, [upper_records], args.gamma)
         lower_loss = update_policy(lower, lower_opt, lower_trajectories, args.gamma)
+        execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
+        upper_action_count = max(1, len(upper_records))
         row = {
             "episode": episode,
             "seed": seed,
@@ -225,13 +228,49 @@ def main():
             "migrations": result["metrics"]["migrations"],
             "total_realized_cost": result["metrics"]["total_realized_cost"],
             "total_disruption": result["metrics"]["total_disruption"],
+            "upper_keep_count": result["upper_keep_count"],
+            "upper_immediate_count": result["upper_immediate_count"],
+            "upper_delayed_count": result["upper_delayed_count"],
+            "scope_link_only_count": result["scope_link_only_count"],
+            "scope_partial_count": result["scope_partial_count"],
+            "scope_full_count": result["scope_full_count"],
+            "pending_created": result["pending_created"],
+            "pending_executed": result["pending_executed"],
+            "pending_cancelled": result["pending_cancelled"],
+            "lower_success": result["lower_success"],
+            "lower_failure": result["lower_failure"],
+            "routing_success": result["routing_success"],
+            "routing_failure": result["routing_failure"],
+            "rollback_count": result["rollback_count"],
+            "keep_rate": result["upper_keep_count"] / upper_action_count,
+            "execution_success_rate": result["metrics"]["migrations"] / max(1, execution_attempts),
+            "rollback_rate": result["rollback_count"] / max(1, execution_attempts),
             **{f"reward_{name}": value for name, value in reward_totals.items()},
         }
+        for name, value in reward_totals.items():
+            row[f"reward_{name}_per_upper"] = value / upper_action_count
         history.append(row)
         print(
             f"episode={episode:03d} upper_loss={upper_loss:.4f} lower_loss={lower_loss:.4f} "
             f"sla={row['sla_violation_rate']:.4f} migrations={row['migrations']} reward={row['reward_total']:.3f}"
         )
+        if args.diagnostic:
+            print(
+                f"  upper={row['upper_actions']} keep={row['upper_keep_count']} "
+                f"immediate={row['upper_immediate_count']} delayed={row['upper_delayed_count']} "
+                f"pending_exec={row['pending_executed']} pending_cancel={row['pending_cancelled']}"
+            )
+            print(
+                f"  scope: link={row['scope_link_only_count']} partial={row['scope_partial_count']} "
+                f"full={row['scope_full_count']} | lower: ok={row['lower_success']} fail={row['lower_failure']} "
+                f"routing_fail={row['routing_failure']} rollback={row['rollback_count']}"
+            )
+            print(
+                f"  reward: risk={row['reward_risk']:+.3f} cost={row['reward_cost']:+.3f} "
+                f"disruption={row['reward_disruption']:+.3f} sla={row['reward_sla']:+.3f} "
+                f"future_sla={row['reward_future_sla']:+.3f} failure={row['reward_failure']:+.3f} "
+                f"per_upper={row['reward_total_per_upper']:+.3f}"
+            )
     metadata = {
         "stgcn_checkpoint": str(args.stgcn_checkpoint),
         "selector": "TopRiskKSelector",
