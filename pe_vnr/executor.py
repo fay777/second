@@ -19,10 +19,23 @@ class ExecutionOutcome:
     link_reroutes: int
     node_migration_cost: float
     link_reroute_cost: float
+    # Component risks preserve routing sensitivity while the legacy max risk remains comparable.
+    pre_node_risk: float = 0.0
+    post_node_risk: float = 0.0
+    pre_link_risk: float = 0.0
+    post_link_risk: float = 0.0
 
     @property
     def risk_reduction(self) -> float:
         return self.pre_risk - self.post_risk
+
+    @property
+    def node_risk_reduction(self) -> float:
+        return self.pre_node_risk - self.post_node_risk
+
+    @property
+    def link_risk_reduction(self) -> float:
+        return self.pre_link_risk - self.post_link_risk
 
     @property
     def migrated(self) -> bool:
@@ -101,13 +114,25 @@ class ElasticReconfigurationExecutor:
         node_risk: Dict[int, float],
         link_risk: Dict[Tuple[int, int], float],
     ) -> float:
+        node_mean, link_mean = ElasticReconfigurationExecutor.deployment_risk_components(
+            deployment, node_risk, link_risk
+        )
+        return max(node_mean, link_mean)
+
+    @staticmethod
+    def deployment_risk_components(
+        deployment: Deployment,
+        node_risk: Dict[int, float],
+        link_risk: Dict[Tuple[int, int], float],
+    ) -> Tuple[float, float]:
+        """Return node/link exposure separately for HAC reward diagnosis."""
         node_scores = [node_risk.get(node_id, 0.0) for node_id in deployment.node_mapping.values()]
         link_scores = [
             link_risk.get(edge_key(*link_id), 0.0)
             for path in deployment.link_mapping.values()
             for link_id in path
         ]
-        return max(
+        return (
             sum(node_scores) / max(1, len(node_scores)),
             sum(link_scores) / max(1, len(link_scores)),
         )
@@ -129,8 +154,10 @@ class ElasticReconfigurationExecutor:
             1 for v_link_id, old_path in old.link_mapping.items()
             if candidate.link_mapping.get(v_link_id) != old_path
         )
-        pre_risk = self.deployment_risk(old, node_risk, link_risk)
-        post_risk = self.deployment_risk(candidate, node_risk, link_risk)
+        pre_node_risk, pre_link_risk = self.deployment_risk_components(old, node_risk, link_risk)
+        post_node_risk, post_link_risk = self.deployment_risk_components(candidate, node_risk, link_risk)
+        pre_risk = max(pre_node_risk, pre_link_risk)
+        post_risk = max(post_node_risk, post_link_risk)
         node_cost = self.config.node_migration_cost_weight * node_migrations / max(1, len(old.node_mapping))
         link_cost = self.config.link_reroute_cost_weight * link_reroutes / max(1, len(old.link_mapping))
         changed = node_migrations > 0 or link_reroutes > 0
@@ -152,6 +179,10 @@ class ElasticReconfigurationExecutor:
             link_reroutes=link_reroutes if accepted else 0,
             node_migration_cost=node_cost if accepted else 0.0,
             link_reroute_cost=link_cost if accepted else 0.0,
+            pre_node_risk=pre_node_risk,
+            post_node_risk=post_node_risk if accepted else pre_node_risk,
+            pre_link_risk=pre_link_risk,
+            post_link_risk=post_link_risk if accepted else pre_link_risk,
         )
 
     def route_links(

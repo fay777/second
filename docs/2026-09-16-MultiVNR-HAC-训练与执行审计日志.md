@@ -194,6 +194,17 @@ scope x risk reduction and improved/worsened/unchanged count
 
 每个训练结束后，脚本会在固定的独立 calibration seeds `900, 901, 902` 上执行无采样的 argmax rollout，并写入 `calibration_evaluation.json`。这仅用于比较奖励设计，不属于正式 validation 或 untouched test。可传入 `--calibration-eval-seeds` 后不带数值以禁用。
 
+## 节点/链路风险分量诊断
+
+系统级风险继续使用 `max(mean_node_risk, mean_link_risk)`，因此与旧 baseline 和历史指标保持可比。HAC 的 execution outcome 另外记录：
+
+```text
+pre/post_node_risk, pre/post_link_risk
+node_risk_reduction, link_risk_reduction
+```
+
+这是诊断字段，当前不进入 reward。其目的在于确认 `link-only` 重路由是否降低实际链路风险；若节点风险始终主导 `max(...)`，全局风险变化为零并不代表路由优化没有效果。只有在该诊断确认后，才考虑下一轮 HAC 专用风险 reward 组合设计。
+
 ## 常用命令
 
 ```bash

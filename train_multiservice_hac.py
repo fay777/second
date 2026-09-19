@@ -195,17 +195,25 @@ def execution_diagnostics(execution_events):
         attempts = [event for event in execution_events if event.decision.scope == scope]
         accepted = [event for event in accepted_events if event.decision.scope == scope]
         deltas = [float(event.execution.outcome.risk_reduction) for event in accepted]
+        node_deltas = [float(event.execution.outcome.node_risk_reduction) for event in accepted]
+        link_deltas = [float(event.execution.outcome.link_risk_reduction) for event in accepted]
         diagnostics[f"execution_scope_{scope}_attempts"] = len(attempts)
         diagnostics[f"accepted_scope_{scope}"] = len(accepted)
         diagnostics[f"accepted_rate_scope_{scope}"] = len(accepted) / max(1, len(attempts))
         diagnostics[f"accepted_avg_risk_reduction_scope_{scope}"] = sum(deltas) / max(1, len(deltas))
+        diagnostics[f"accepted_avg_node_risk_reduction_scope_{scope}"] = sum(node_deltas) / max(1, len(node_deltas))
+        diagnostics[f"accepted_avg_link_risk_reduction_scope_{scope}"] = sum(link_deltas) / max(1, len(link_deltas))
         diagnostics[f"accepted_risk_improved_scope_{scope}"] = sum(delta > 1e-9 for delta in deltas)
         diagnostics[f"accepted_risk_worsened_scope_{scope}"] = sum(delta < -1e-9 for delta in deltas)
         diagnostics[f"accepted_risk_unchanged_scope_{scope}"] = sum(abs(delta) <= 1e-9 for delta in deltas)
     deltas = [float(event.execution.outcome.risk_reduction) for event in accepted_events]
+    node_deltas = [float(event.execution.outcome.node_risk_reduction) for event in accepted_events]
+    link_deltas = [float(event.execution.outcome.link_risk_reduction) for event in accepted_events]
     positive = [delta for delta in deltas if delta > 1e-9]
     negative = [delta for delta in deltas if delta < -1e-9]
     diagnostics["accepted_avg_risk_reduction"] = sum(deltas) / max(1, len(deltas))
+    diagnostics["accepted_avg_node_risk_reduction"] = sum(node_deltas) / max(1, len(node_deltas))
+    diagnostics["accepted_avg_link_risk_reduction"] = sum(link_deltas) / max(1, len(link_deltas))
     diagnostics["accepted_risk_improved_count"] = len(positive)
     diagnostics["accepted_risk_worsened_count"] = len(negative)
     diagnostics["accepted_risk_unchanged_count"] = sum(abs(delta) <= 1e-9 for delta in deltas)
@@ -416,6 +424,12 @@ def main():
                 "released_bandwidth_ratio": event.released_bandwidth_ratio,
                 "pre_risk": event.execution.outcome.pre_risk,
                 "post_risk": event.execution.outcome.post_risk,
+                "pre_node_risk": event.execution.outcome.pre_node_risk,
+                "post_node_risk": event.execution.outcome.post_node_risk,
+                "pre_link_risk": event.execution.outcome.pre_link_risk,
+                "post_link_risk": event.execution.outcome.post_link_risk,
+                "node_risk_reduction": event.execution.outcome.node_risk_reduction,
+                "link_risk_reduction": event.execution.outcome.link_risk_reduction,
             })
         print(
             f"episode={episode:03d} upper_loss={upper_loss:.4f} lower_loss={lower_loss:.4f} "
@@ -436,6 +450,10 @@ def main():
             print(
                 f"  accepted={row['accepted_migrations']} avg_risk_delta={row['accepted_avg_risk_reduction']:+.4f} "
                 f"avg_cost={row['accepted_avg_realized_cost']:.3f} avg_disruption={row['accepted_avg_disruption']:.3f}"
+            )
+            print(
+                f"  component risk delta: node={row['accepted_avg_node_risk_reduction']:+.4f} "
+                f"link={row['accepted_avg_link_risk_reduction']:+.4f}"
             )
             print(
                 f"  scope accepted rate: link={row['accepted_rate_scope_link-only']:.3f} "
@@ -472,6 +490,8 @@ def main():
         "selector": "TopRiskKSelector",
         "selector_top_k": 1,
         "hac_enforce_risk_reduction": False,
+        "system_risk_aggregation": "max(mean_node_risk, mean_link_risk)",
+        "hac_component_risk_diagnostics": True,
         "upper_state_dim": UPPER_STATE_DIM,
         "upper_action_dim": UPPER_ACTION_DIM,
         "lower_state_dim": LOWER_STATE_DIM,
