@@ -4,6 +4,7 @@ import argparse
 import json
 import random
 from collections import Counter, deque
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -26,6 +27,19 @@ LOWER_STATE_DIM = 9
 LOWER_CANDIDATE_DIM = 7
 UPPER_ACTION_DIM = 24  # KEEP/MIGRATE x delay(0..3) x 3 scopes
 FUTURE_SLA_HORIZON = 3
+REWARD_COMPONENTS = ("risk", "cost", "disruption", "sla", "future_sla", "failure")
+
+
+@dataclass(frozen=True)
+class RewardWeights:
+    """Explicit reward weights; defaults reproduce the prior reward definition."""
+
+    risk: float = 2.0
+    cost: float = 1.0
+    disruption: float = 1.0
+    sla: float = 1.0
+    future_sla: float = 1.0
+    failure: float = 1.0
 
 
 def update_policy(model, optimizer, trajectories, gamma: float) -> float:
@@ -55,13 +69,20 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> float:
     return float(loss.item())
 
 
-def event_reward(event: HACWorkerEvent) -> Tuple[float, Dict[str, float]]:
-    """Decompose reward so policy behavior remains auditable in experiments."""
-    components = {"risk": 0.0, "cost": 0.0, "disruption": 0.0, "sla": 0.0, "failure": 0.0}
+def weighted_reward(raw_components: Dict[str, float], weights: RewardWeights) -> Tuple[float, Dict[str, float]]:
+    """Apply calibration weights without obscuring the underlying environment signal."""
+    weighted = {name: float(raw_components.get(name, 0.0)) * getattr(weights, name) for name in REWARD_COMPONENTS}
+    return sum(weighted.values()), weighted
+
+
+def event_reward(event: HACWorkerEvent, weights: RewardWeights) -> Tuple[float, Dict[str, float], Dict[str, float]]:
+    """Return raw and calibrated reward components for reproducible experiments."""
+    components = {name: 0.0 for name in REWARD_COMPONENTS}
     if event.execution is None:
-        return sum(components.values()), components
+        reward, weighted = weighted_reward(components, weights)
+        return reward, components, weighted
     outcome = event.execution.outcome
-    components["risk"] = 2.0 * float(outcome.risk_reduction)
+    components["risk"] = float(outcome.risk_reduction)
     components["cost"] = -float(outcome.total_cost)
     if outcome.migrated:
         components["disruption"] = -0.5 if event.decision.scope == "link-only" else -1.0
@@ -75,7 +96,8 @@ def event_reward(event: HACWorkerEvent) -> Tuple[float, Dict[str, float]]:
         components["sla"] = -3.0
     elif pre_sla:
         components["sla"] = -1.0
-    return sum(components.values()), components
+    reward, weighted = weighted_reward(components, weights)
+    return reward, components, weighted
 
 
 def build_environment(seed, steps, checkpoint, device, upper_policy, lower_policy):
@@ -118,23 +140,27 @@ def future_keep_penalty(event, service_sla_history):
     return -float(sum(future)) / max(1, len(future))
 
 
-def assign_event_rewards(events, service_sla_history, upper_records, lower_records):
+def assign_event_rewards(events, service_sla_history, upper_records, lower_records, weights: RewardWeights):
     """Credit delayed actions by ID and keep each Lower execution independent."""
     upper_events = [event for event in events if event.event_type == "upper_decision"]
     if len(upper_events) != len(upper_records):
         raise RuntimeError("Upper action trace does not match upper-decision events.")
     upper_by_id = {event.origin_decision_id: record for event, record in zip(upper_events, upper_records)}
     lower_queue = deque(lower_records)
-    totals = {"risk": 0.0, "cost": 0.0, "disruption": 0.0, "sla": 0.0, "future_sla": 0.0, "failure": 0.0, "total": 0.0}
+    raw_totals = {name: 0.0 for name in REWARD_COMPONENTS}
+    weighted_totals = {name: 0.0 for name in REWARD_COMPONENTS}
+    weighted_totals["total"] = 0.0
     lower_trajectories = []
     for event in events:
-        reward, components = event_reward(event)
+        reward, components, weighted_components = event_reward(event, weights)
         if event.event_type == "upper_decision" and not event.decision.migrate:
             components["future_sla"] = future_keep_penalty(event, service_sla_history)
-            reward += components["future_sla"]
+            reward, weighted_components = weighted_reward(components, weights)
         for name, value in components.items():
-            totals[name] += value
-        totals["total"] += reward
+            raw_totals[name] += value
+        for name, value in weighted_components.items():
+            weighted_totals[name] += value
+        weighted_totals["total"] += reward
         upper_record = upper_by_id.get(event.origin_decision_id)
         if upper_record is None:
             raise RuntimeError(f"Missing upper record for HAC decision {event.origin_decision_id}.")
@@ -151,7 +177,8 @@ def assign_event_rewards(events, service_sla_history, upper_records, lower_recor
                 lower_trajectories.append(execution_records)
     if lower_queue:
         raise RuntimeError("Unassigned lower actions remain after reward assignment.")
-    return totals, lower_trajectories
+    raw_totals["total"] = sum(raw_totals.values())
+    return raw_totals, weighted_totals, lower_trajectories
 
 
 def main():
@@ -162,6 +189,12 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--reward-risk-weight", type=float, default=2.0)
+    parser.add_argument("--reward-cost-weight", type=float, default=1.0)
+    parser.add_argument("--reward-disruption-weight", type=float, default=1.0)
+    parser.add_argument("--reward-sla-weight", type=float, default=1.0)
+    parser.add_argument("--reward-future-sla-weight", type=float, default=1.0)
+    parser.add_argument("--reward-failure-weight", type=float, default=1.0)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--diagnostic", action="store_true", help="Print HAC action and reward-component diagnostics per episode.")
     parser.add_argument("--output", type=Path, default=Path("artifacts/multiservice_hac"))
@@ -170,6 +203,14 @@ def main():
         raise ValueError("episodes and steps must be positive.")
     if not args.stgcn_checkpoint.is_file():
         raise FileNotFoundError(f"Missing ST-GCN checkpoint: {args.stgcn_checkpoint}")
+    reward_weights = RewardWeights(
+        risk=args.reward_risk_weight,
+        cost=args.reward_cost_weight,
+        disruption=args.reward_disruption_weight,
+        sla=args.reward_sla_weight,
+        future_sla=args.reward_future_sla_weight,
+        failure=args.reward_failure_weight,
+    )
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
@@ -205,18 +246,36 @@ def main():
         seed = args.seed + episode
         env = build_environment(seed, args.steps, args.stgcn_checkpoint, str(device), upper_policy, lower_policy)
         result = env.run(args.steps)
-        reward_totals, lower_trajectories = assign_event_rewards(
+        raw_reward_totals, reward_totals, lower_trajectories = assign_event_rewards(
             result["hac_events"],
             result["service_sla_history"],
             upper_records,
             lower_records,
+            reward_weights,
         )
         upper_loss = update_policy(upper, upper_opt, [upper_records], args.gamma)
         lower_loss = update_policy(lower, lower_opt, lower_trajectories, args.gamma)
         execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
         upper_action_count = max(1, len(upper_records))
         execution_events = [event for event in result["hac_events"] if event.execution is not None]
+        accepted_events = [event for event in execution_events if event.execution.outcome.migrated]
         stage_counts = Counter(event.execution.failure_stage for event in execution_events)
+        execution_raw_totals = {name: 0.0 for name in REWARD_COMPONENTS}
+        execution_weighted_totals = {name: 0.0 for name in REWARD_COMPONENTS}
+        for event in execution_events:
+            _, raw_components, weighted_components = event_reward(event, reward_weights)
+            for name in REWARD_COMPONENTS:
+                execution_raw_totals[name] += raw_components[name]
+                execution_weighted_totals[name] += weighted_components[name]
+        scope_attempts = {
+            scope: sum(event.decision.scope == scope for event in execution_events)
+            for scope in ("link-only", "partial", "full")
+        }
+        scope_accepted = {
+            scope: sum(event.decision.scope == scope for event in accepted_events)
+            for scope in scope_attempts
+        }
+        execution_event_count = max(1, len(execution_events))
         row = {
             "episode": episode,
             "seed": seed,
@@ -248,11 +307,25 @@ def main():
             "keep_rate": result["upper_keep_count"] / upper_action_count,
             "execution_success_rate": result["metrics"]["migrations"] / max(1, execution_attempts),
             "rollback_rate": result["rollback_count"] / max(1, execution_attempts),
+            "accepted_migrations": len(accepted_events),
+            "accepted_avg_risk_reduction": sum(event.execution.outcome.risk_reduction for event in accepted_events) / max(1, len(accepted_events)),
+            "accepted_avg_realized_cost": sum(event.execution.outcome.total_cost for event in accepted_events) / max(1, len(accepted_events)),
+            "accepted_avg_disruption": sum(0.5 if event.decision.scope == "link-only" else 1.0 for event in accepted_events) / max(1, len(accepted_events)),
+            "accepted_risk_worsened_count": sum(event.execution.outcome.risk_reduction < 0.0 for event in accepted_events),
+            **{f"execution_scope_{scope}_attempts": count for scope, count in scope_attempts.items()},
+            **{f"accepted_scope_{scope}": count for scope, count in scope_accepted.items()},
+            **{f"accepted_rate_scope_{scope}": scope_accepted[scope] / max(1, attempts) for scope, attempts in scope_attempts.items()},
             **{f"execution_stage_{stage}": count for stage, count in sorted(stage_counts.items())},
             **{f"reward_{name}": value for name, value in reward_totals.items()},
+            **{f"reward_raw_{name}": value for name, value in raw_reward_totals.items()},
         }
         for name, value in reward_totals.items():
             row[f"reward_{name}_per_upper"] = value / upper_action_count
+        for name, value in raw_reward_totals.items():
+            row[f"reward_raw_{name}_per_upper"] = value / upper_action_count
+        for name in REWARD_COMPONENTS:
+            row[f"reward_{name}_per_execution"] = execution_weighted_totals[name] / execution_event_count
+            row[f"reward_raw_{name}_per_execution"] = execution_raw_totals[name] / execution_event_count
         history.append(row)
         for event in execution_events:
             execution_audit.append({
@@ -289,10 +362,28 @@ def main():
             )
             print(f"  execution stages: {dict(sorted(stage_counts.items()))}")
             print(
-                f"  reward: risk={row['reward_risk']:+.3f} cost={row['reward_cost']:+.3f} "
+                f"  accepted={row['accepted_migrations']} avg_risk_delta={row['accepted_avg_risk_reduction']:+.4f} "
+                f"avg_cost={row['accepted_avg_realized_cost']:.3f} avg_disruption={row['accepted_avg_disruption']:.3f}"
+            )
+            print(
+                f"  scope accepted rate: link={row['accepted_rate_scope_link-only']:.3f} "
+                f"partial={row['accepted_rate_scope_partial']:.3f} full={row['accepted_rate_scope_full']:.3f}"
+            )
+            print(
+                f"  reward weighted: risk={row['reward_risk']:+.3f} cost={row['reward_cost']:+.3f} "
                 f"disruption={row['reward_disruption']:+.3f} sla={row['reward_sla']:+.3f} "
                 f"future_sla={row['reward_future_sla']:+.3f} failure={row['reward_failure']:+.3f} "
                 f"per_upper={row['reward_total_per_upper']:+.3f}"
+            )
+            print(
+                f"  reward raw: risk={row['reward_raw_risk']:+.3f} cost={row['reward_raw_cost']:+.3f} "
+                f"disruption={row['reward_raw_disruption']:+.3f} sla={row['reward_raw_sla']:+.3f} "
+                f"future_sla={row['reward_raw_future_sla']:+.3f} failure={row['reward_raw_failure']:+.3f}"
+            )
+            print(
+                f"  reward per execution: risk={row['reward_risk_per_execution']:+.3f} "
+                f"cost={row['reward_cost_per_execution']:+.3f} sla={row['reward_sla_per_execution']:+.3f} "
+                f"failure={row['reward_failure_per_execution']:+.3f}"
             )
     metadata = {
         "stgcn_checkpoint": str(args.stgcn_checkpoint),
@@ -303,7 +394,8 @@ def main():
         "upper_action_dim": UPPER_ACTION_DIM,
         "lower_state_dim": LOWER_STATE_DIM,
         "lower_candidate_dim": LOWER_CANDIDATE_DIM,
-        "reward_components": ["risk", "cost", "disruption", "sla", "future_sla", "failure"],
+        "reward_components": list(REWARD_COMPONENTS),
+        "reward_weights": asdict(reward_weights),
         "future_sla_horizon": FUTURE_SLA_HORIZON,
         "arguments": {
             **vars(args),
