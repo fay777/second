@@ -171,6 +171,29 @@ python -B train_multiservice_hac.py \
 
 首轮比较 `training_history.json` 中的 `reward_raw_*`、`reward_*`、`accepted_avg_risk_reduction`、`accepted_avg_realized_cost`、`accepted_avg_disruption` 与 `sla_violation_rate`。若风险项仍明显小于成本、中断、SLA 与失败项，再测试 `--reward-risk-weight 20`；不要一次同时更改多个权重。
 
+## Actor-Critic 更新修正与第二轮校准
+
+第一轮 `risk=2/10/20/40` 表明，线性放大风险权重无法改变 `risk=20` 与 `risk=40` 的采样行为。风险变化本身有区分度，且 accepted migration 的负风险变化幅度大于正风险变化幅度；因此不应改为 relative risk，也不应继续扫描更大的线性权重。
+
+`update_policy()` 已修正为：
+
+```text
+critic target = raw discounted return
+actor signal = normalize(return - detached value)
+```
+
+此前错误地标准化了 return 本身，导致 critic 学习的是每个 rollout 的标准化目标。第二轮的所有结果均不得与第一轮旧更新公式的 checkpoint 或性能表直接合并。
+
+训练 history 新增 accepted migration 的：
+
+```text
+improved / worsened / unchanged count and fraction
+mean positive / negative risk reduction
+scope x risk reduction and improved/worsened/unchanged count
+```
+
+每个训练结束后，脚本会在固定的独立 calibration seeds `900, 901, 902` 上执行无采样的 argmax rollout，并写入 `calibration_evaluation.json`。这仅用于比较奖励设计，不属于正式 validation 或 untouched test。可传入 `--calibration-eval-seeds` 后不带数值以禁用。
+
 ## 常用命令
 
 ```bash
