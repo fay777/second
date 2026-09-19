@@ -213,6 +213,24 @@ node_risk_reduction + link_risk_reduction
 
 该项不引入额外比例超参数，确保节点迁移和链路重路由都能获得与其实际风险变化一致的学习信号。统一系统指标继续使用 `max(mean_node_risk, mean_link_risk)`，所有 baseline 的统计定义不变。此前 raw-return 的 `risk=2/20/40` checkpoint 仅作诊断，不再作为此新 reward 定义的 calibration 对照。
 
+## Upper 动作编码修正
+
+原 PlanningEnv 使用 24 个编码，其中实际上只有一个合法 KEEP：
+
+```text
+KEEP = 1
+MIGRATE(delay, scope) = 4 x 3 = 12
+```
+
+直接在 24 类 logits 上采样会使迁移拥有 12 倍初始概率质量，并使 argmax 偏向多个 migration logits 的最大值。HAC trainer 现使用 13 类规范策略动作：
+
+```text
+policy action 0 = KEEP
+policy actions 1..12 = MIGRATE(delay, scope)
+```
+
+执行前再映射至既有 PlanningEnv 的 `12..23` migration 编码。因此不需要修改 Worker、环境或规划 MDP 的语义，但移除了动作空间基数导致的结构性迁移偏置。此前 component-reward `risk=2/20` checkpoint 不能与新动作编码下的结果直接比较。
+
 ## 常用命令
 
 ```bash

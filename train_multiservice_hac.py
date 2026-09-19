@@ -25,7 +25,9 @@ from pe_vnr.workload import generate_workload_trace
 UPPER_STATE_DIM = 17  # service(5) + risk(4 + horizon=3) + cost/pressure(5)
 LOWER_STATE_DIM = 9
 LOWER_CANDIDATE_DIM = 7
-UPPER_ACTION_DIM = 24  # KEEP/MIGRATE x delay(0..3) x 3 scopes
+UPPER_PLANNING_ACTION_DIM = 24  # Existing PlanningEnv encoding.
+UPPER_ACTION_DIM = 13  # One canonical KEEP action + 4 delays x 3 migration scopes.
+UPPER_MIGRATION_OFFSET = UPPER_PLANNING_ACTION_DIM - (UPPER_ACTION_DIM - 1)
 FUTURE_SLA_HORIZON = 3
 REWARD_COMPONENTS = ("risk", "cost", "disruption", "sla", "future_sla", "failure")
 
@@ -40,6 +42,19 @@ class RewardWeights:
     sla: float = 1.0
     future_sla: float = 1.0
     failure: float = 1.0
+
+
+def compact_upper_action_mask(planning_mask, device) -> torch.Tensor:
+    """Remove redundant KEEP encodings so migration actions have no cardinality prior."""
+    compact_mask = [bool(planning_mask[0]), *(bool(value) for value in planning_mask[UPPER_MIGRATION_OFFSET:])]
+    return torch.tensor(compact_mask, dtype=torch.bool, device=device).unsqueeze(0)
+
+
+def policy_action_to_planning_action(action: int) -> int:
+    """Map canonical policy action 0=KEEP, 1..12=migration to PlanningEnv encoding."""
+    if not 0 <= action < UPPER_ACTION_DIM:
+        raise ValueError(f"Upper policy action is outside canonical action space: {action}")
+    return 0 if action == 0 else action + UPPER_MIGRATION_OFFSET - 1
 
 
 def update_policy(model, optimizer, trajectories, gamma: float) -> float:
@@ -239,9 +254,9 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
 
     def upper_policy(obs):
         state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
-        mask = torch.tensor(obs.action_mask, dtype=torch.bool, device=device).unsqueeze(0)
+        mask = compact_upper_action_mask(obs.action_mask, device)
         logits = upper.act(state).masked_fill(~mask, -1e9)
-        return int(logits.argmax(dim=-1).item())
+        return policy_action_to_planning_action(int(logits.argmax(dim=-1).item()))
 
     def lower_policy(obs):
         state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
@@ -327,11 +342,11 @@ def main():
 
         def upper_policy(obs):
             state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
-            mask = torch.tensor(obs.action_mask, dtype=torch.bool, device=device).unsqueeze(0)
+            mask = compact_upper_action_mask(obs.action_mask, device)
             dist = Categorical(logits=upper.act(state).masked_fill(~mask, -1e9))
             action = dist.sample()
             upper_records.append({"log_prob": dist.log_prob(action).squeeze(), "value": upper.value(state).squeeze(), "reward": 0.0})
-            return int(action.item())
+            return policy_action_to_planning_action(int(action.item()))
 
         def lower_policy(obs):
             state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
@@ -498,6 +513,8 @@ def main():
         "hac_risk_reward": "node_risk_reduction + link_risk_reduction",
         "upper_state_dim": UPPER_STATE_DIM,
         "upper_action_dim": UPPER_ACTION_DIM,
+        "upper_planning_action_dim": UPPER_PLANNING_ACTION_DIM,
+        "upper_action_encoding": "canonical_keep_plus_delay_scope_migration",
         "lower_state_dim": LOWER_STATE_DIM,
         "lower_candidate_dim": LOWER_CANDIDATE_DIM,
         "reward_components": list(REWARD_COMPONENTS),
