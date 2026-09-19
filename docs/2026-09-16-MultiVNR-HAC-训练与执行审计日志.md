@@ -231,6 +231,8 @@ policy actions 1..12 = MIGRATE(delay, scope)
 
 执行前再映射至既有 PlanningEnv 的 `12..23` migration 编码。因此不需要修改 Worker、环境或规划 MDP 的语义，但移除了动作空间基数导致的结构性迁移偏置。此前 component-reward `risk=2/20` checkpoint 不能与新动作编码下的结果直接比较。
 
+Argmax calibration evaluation 还记录 `mean_keep_probability` 与 `mean_migration_vs_keep_logit_margin`。当 KEEP rate 为零时，这两个字段用于判断策略是接近 KEEP/MIGRATE 边界，还是 migration logit 明显占优；在此诊断完成前不继续扫描风险权重。
+
 ## 常用命令
 
 ```bash

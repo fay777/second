@@ -251,11 +251,18 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
     """Run a fixed-seed deterministic rollout solely for reward-calibration comparison."""
     upper.eval()
     lower.eval()
+    keep_probabilities = []
+    migration_margins = []
 
     def upper_policy(obs):
         state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
         mask = compact_upper_action_mask(obs.action_mask, device)
         logits = upper.act(state).masked_fill(~mask, -1e9)
+        probabilities = torch.softmax(logits, dim=-1)
+        keep_probabilities.append(float(probabilities[0, 0].item()))
+        migration_logits = logits[0, 1:]
+        if torch.any(mask[0, 1:]):
+            migration_margins.append(float((migration_logits.max() - logits[0, 0]).item()))
         return policy_action_to_planning_action(int(logits.argmax(dim=-1).item()))
 
     def lower_policy(obs):
@@ -281,6 +288,8 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
         "upper_keep_count": result["upper_keep_count"],
         "upper_actions": sum(event.event_type == "upper_decision" for event in result["hac_events"]),
         "keep_rate": result["upper_keep_count"] / max(1, sum(event.event_type == "upper_decision" for event in result["hac_events"])),
+        "mean_keep_probability": sum(keep_probabilities) / max(1, len(keep_probabilities)),
+        "mean_migration_vs_keep_logit_margin": sum(migration_margins) / max(1, len(migration_margins)),
         "no_candidate_host_rate": stage_counts["no_candidate_host"] / max(1, len(execution_events)),
         "execution_stages": dict(sorted(stage_counts.items())),
         **diagnostics,
