@@ -1,0 +1,44 @@
+{
+  "stgcn_checkpoint": "artifacts/stgcn_h3/stgcn_best.pt",
+  "selector": "TopRiskKSelector",
+  "selector_top_k": 1,
+  "hac_enforce_risk_reduction": false,
+  "upper_state_dim": 17,
+  "upper_action_dim": 24,
+  "lower_state_dim": 9,
+  "lower_candidate_dim": 7,
+  "reward_components": [
+    "risk",
+    "cost",
+    "disruption",
+    "sla",
+    "future_sla",
+    "failure"
+  ],
+  "reward_weights": {
+    "risk": 40.0,
+    "cost": 1.0,
+    "disruption": 1.0,
+    "sla": 1.0,
+    "future_sla": 1.0,
+    "failure": 1.0
+  },
+  "future_sla_horizon": 3,
+  "arguments": {
+    "stgcn_checkpoint": "artifacts/stgcn_h3/stgcn_best.pt",
+    "episodes": 20,
+    "steps": 100,
+    "seed": 400,
+    "lr": 0.0003,
+    "gamma": 0.99,
+    "reward_risk_weight": 40.0,
+    "reward_cost_weight": 1.0,
+    "reward_disruption_weight": 1.0,
+    "reward_sla_weight": 1.0,
+    "reward_future_sla_weight": 1.0,
+    "reward_failure_weight": 1.0,
+    "device": "cpu",
+    "diagnostic": true,
+    "output": "artifacts/hac_calibration_risk40"
+  }
+}
