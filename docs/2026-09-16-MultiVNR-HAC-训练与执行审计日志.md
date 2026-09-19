@@ -205,6 +205,14 @@ node_risk_reduction, link_risk_reduction
 
 这是诊断字段，当前不进入 reward。其目的在于确认 `link-only` 重路由是否降低实际链路风险；若节点风险始终主导 `max(...)`，全局风险变化为零并不代表路由优化没有效果。只有在该诊断确认后，才考虑下一轮 HAC 专用风险 reward 组合设计。
 
+诊断结果确认：`link-only` 的 67 次 accepted reroute 中有 57 次降低链路风险，但全局与节点风险变化均为零；`partial` 的节点、链路风险平均均下降，`full` 的两类风险平均均恶化。因此 HAC reward 的 `risk` 分量已改为：
+
+```text
+node_risk_reduction + link_risk_reduction
+```
+
+该项不引入额外比例超参数，确保节点迁移和链路重路由都能获得与其实际风险变化一致的学习信号。统一系统指标继续使用 `max(mean_node_risk, mean_link_risk)`，所有 baseline 的统计定义不变。此前 raw-return 的 `risk=2/20/40` checkpoint 仅作诊断，不再作为此新 reward 定义的 calibration 对照。
+
 ## 常用命令
 
 ```bash

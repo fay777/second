@@ -84,7 +84,10 @@ def event_reward(event: HACWorkerEvent, weights: RewardWeights) -> Tuple[float, 
         reward, weighted = weighted_reward(components, weights)
         return reward, components, weighted
     outcome = event.execution.outcome
-    components["risk"] = float(outcome.risk_reduction)
+    # Global max-risk can mask a beneficial link-only reroute when node risk dominates.
+    # HAC therefore optimizes the additive node/link exposure reduction, while the
+    # legacy global max-risk remains the shared reporting metric for all methods.
+    components["risk"] = float(outcome.node_risk_reduction + outcome.link_risk_reduction)
     components["cost"] = -float(outcome.total_cost)
     if outcome.migrated:
         components["disruption"] = -0.5 if event.decision.scope == "link-only" else -1.0
@@ -492,6 +495,7 @@ def main():
         "hac_enforce_risk_reduction": False,
         "system_risk_aggregation": "max(mean_node_risk, mean_link_risk)",
         "hac_component_risk_diagnostics": True,
+        "hac_risk_reward": "node_risk_reduction + link_risk_reduction",
         "upper_state_dim": UPPER_STATE_DIM,
         "upper_action_dim": UPPER_ACTION_DIM,
         "lower_state_dim": LOWER_STATE_DIM,
