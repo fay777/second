@@ -222,16 +222,16 @@ KEEP = 1
 MIGRATE(delay, scope) = 4 x 3 = 12
 ```
 
-直接在 24 类 logits 上采样会使迁移拥有 12 倍初始概率质量，并使 argmax 偏向多个 migration logits 的最大值。HAC trainer 现使用 13 类规范策略动作：
+直接在 24 类 logits 上采样会使迁移拥有 12 倍初始概率质量，并使 argmax 偏向多个 migration logits 的最大值。最初将其压缩为 13 类动作仍不充分：单个 KEEP 类仍会与 12 个迁移类竞争总概率质量。因此 Upper HAC 改为真正的两阶段策略：
 
 ```text
-policy action 0 = KEEP
-policy actions 1..12 = MIGRATE(delay, scope)
+stage 1: binary KEEP / MIGRATE
+stage 2: only when MIGRATE, choose one of 4 delays x 3 scopes
 ```
 
-执行前再映射至既有 PlanningEnv 的 `12..23` migration 编码。因此不需要修改 Worker、环境或规划 MDP 的语义，但移除了动作空间基数导致的结构性迁移偏置。此前 component-reward `risk=2/20` checkpoint 不能与新动作编码下的结果直接比较。
+网络输出为 14 个 logits：前 2 个用于二元决策，后 12 个仅在迁移条件下用于 `(delay, scope)`。执行前将条件动作映射回既有 PlanningEnv 的 `12..23` migration 编码。因此不需要修改 Worker、环境或规划 MDP 的语义，同时消除了动作空间基数导致的结构性迁移偏置。此前 component-reward 与 13 类 canonical-action 的所有 checkpoint 都只能作为诊断，不能与该两阶段策略的结果直接比较。
 
-Argmax calibration evaluation 还记录 `mean_keep_probability` 与 `mean_migration_vs_keep_logit_margin`。当 KEEP rate 为零时，这两个字段用于判断策略是接近 KEEP/MIGRATE 边界，还是 migration logit 明显占优；在此诊断完成前不继续扫描风险权重。
+Argmax calibration evaluation 还记录二元决策的 `mean_keep_probability` 与 `mean_migration_vs_keep_logit_margin`。当 KEEP rate 为零时，这两个字段用于判断策略是接近 KEEP/MIGRATE 边界，还是迁移决策明显占优；在此诊断完成前不继续扫描风险权重。
 
 ## 常用命令
 

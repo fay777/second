@@ -26,8 +26,9 @@ UPPER_STATE_DIM = 17  # service(5) + risk(4 + horizon=3) + cost/pressure(5)
 LOWER_STATE_DIM = 9
 LOWER_CANDIDATE_DIM = 7
 UPPER_PLANNING_ACTION_DIM = 24  # Existing PlanningEnv encoding.
-UPPER_ACTION_DIM = 13  # One canonical KEEP action + 4 delays x 3 migration scopes.
-UPPER_MIGRATION_OFFSET = UPPER_PLANNING_ACTION_DIM - (UPPER_ACTION_DIM - 1)
+UPPER_MIGRATION_ACTION_DIM = 12  # 4 delays x 3 scopes.
+UPPER_ACTION_DIM = 2 + UPPER_MIGRATION_ACTION_DIM  # Binary decision + conditional migration action.
+UPPER_MIGRATION_OFFSET = UPPER_PLANNING_ACTION_DIM - UPPER_MIGRATION_ACTION_DIM
 FUTURE_SLA_HORIZON = 3
 REWARD_COMPONENTS = ("risk", "cost", "disruption", "sla", "future_sla", "failure")
 
@@ -44,17 +45,36 @@ class RewardWeights:
     failure: float = 1.0
 
 
-def compact_upper_action_mask(planning_mask, device) -> torch.Tensor:
-    """Remove redundant KEEP encodings so migration actions have no cardinality prior."""
-    compact_mask = [bool(planning_mask[0]), *(bool(value) for value in planning_mask[UPPER_MIGRATION_OFFSET:])]
-    return torch.tensor(compact_mask, dtype=torch.bool, device=device).unsqueeze(0)
+def migration_action_mask(planning_mask, device) -> torch.Tensor:
+    """Extract feasibility mask for the conditional delay/scope migration policy."""
+    return torch.tensor(
+        [bool(value) for value in planning_mask[UPPER_MIGRATION_OFFSET:]],
+        dtype=torch.bool,
+        device=device,
+    ).unsqueeze(0)
 
 
-def policy_action_to_planning_action(action: int) -> int:
-    """Map canonical policy action 0=KEEP, 1..12=migration to PlanningEnv encoding."""
-    if not 0 <= action < UPPER_ACTION_DIM:
-        raise ValueError(f"Upper policy action is outside canonical action space: {action}")
-    return 0 if action == 0 else action + UPPER_MIGRATION_OFFSET - 1
+def migration_action_to_planning_action(action: int) -> int:
+    """Map conditional migration action 0..11 to PlanningEnv action 12..23."""
+    if not 0 <= action < UPPER_MIGRATION_ACTION_DIM:
+        raise ValueError(f"Conditional migration action is outside action space: {action}")
+    return action + UPPER_MIGRATION_OFFSET
+
+
+def upper_action_distributions(model, state, planning_mask, device):
+    """Build a binary KEEP/MIGRATE policy and its conditional migration policy."""
+    logits = model.act(state)
+    migrate_mask = migration_action_mask(planning_mask, device)
+    migrate_available = bool(migrate_mask.any().item())
+    decision_mask = torch.tensor(
+        [[True, migrate_available]], dtype=torch.bool, device=device
+    )
+    decision_logits = logits[:, :2].masked_fill(~decision_mask, -1e9)
+    decision_dist = Categorical(logits=decision_logits)
+    if not migrate_available:
+        return decision_dist, None, decision_logits
+    migration_logits = logits[:, 2:].masked_fill(~migrate_mask, -1e9)
+    return decision_dist, Categorical(logits=migration_logits), decision_logits
 
 
 def update_policy(model, optimizer, trajectories, gamma: float) -> float:
@@ -256,14 +276,17 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
 
     def upper_policy(obs):
         state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
-        mask = compact_upper_action_mask(obs.action_mask, device)
-        logits = upper.act(state).masked_fill(~mask, -1e9)
-        probabilities = torch.softmax(logits, dim=-1)
+        decision_dist, migration_dist, decision_logits = upper_action_distributions(
+            upper, state, obs.action_mask, device
+        )
+        probabilities = torch.softmax(decision_logits, dim=-1)
         keep_probabilities.append(float(probabilities[0, 0].item()))
-        migration_logits = logits[0, 1:]
-        if torch.any(mask[0, 1:]):
-            migration_margins.append(float((migration_logits.max() - logits[0, 0]).item()))
-        return policy_action_to_planning_action(int(logits.argmax(dim=-1).item()))
+        if migration_dist is not None:
+            migration_margins.append(float((decision_logits[0, 1] - decision_logits[0, 0]).item()))
+        decision = int(decision_logits.argmax(dim=-1).item())
+        if decision == 0:
+            return 0
+        return migration_action_to_planning_action(int(migration_dist.logits.argmax(dim=-1).item()))
 
     def lower_policy(obs):
         state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
@@ -351,11 +374,19 @@ def main():
 
         def upper_policy(obs):
             state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
-            mask = compact_upper_action_mask(obs.action_mask, device)
-            dist = Categorical(logits=upper.act(state).masked_fill(~mask, -1e9))
-            action = dist.sample()
-            upper_records.append({"log_prob": dist.log_prob(action).squeeze(), "value": upper.value(state).squeeze(), "reward": 0.0})
-            return policy_action_to_planning_action(int(action.item()))
+            decision_dist, migration_dist, _ = upper_action_distributions(
+                upper, state, obs.action_mask, device
+            )
+            decision = decision_dist.sample()
+            log_prob = decision_dist.log_prob(decision)
+            if int(decision.item()) == 0:
+                planning_action = 0
+            else:
+                migration_action = migration_dist.sample()
+                log_prob = log_prob + migration_dist.log_prob(migration_action)
+                planning_action = migration_action_to_planning_action(int(migration_action.item()))
+            upper_records.append({"log_prob": log_prob.squeeze(), "value": upper.value(state).squeeze(), "reward": 0.0})
+            return planning_action
 
         def lower_policy(obs):
             state = torch.tensor(obs.state, dtype=torch.float32, device=device).unsqueeze(0)
@@ -523,7 +554,7 @@ def main():
         "upper_state_dim": UPPER_STATE_DIM,
         "upper_action_dim": UPPER_ACTION_DIM,
         "upper_planning_action_dim": UPPER_PLANNING_ACTION_DIM,
-        "upper_action_encoding": "canonical_keep_plus_delay_scope_migration",
+        "upper_action_encoding": "binary_keep_migrate_plus_conditional_delay_scope",
         "lower_state_dim": LOWER_STATE_DIM,
         "lower_candidate_dim": LOWER_CANDIDATE_DIM,
         "reward_components": list(REWARD_COMPONENTS),
