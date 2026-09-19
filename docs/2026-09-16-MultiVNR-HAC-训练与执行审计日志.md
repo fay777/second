@@ -203,7 +203,7 @@ pre/post_node_risk, pre/post_link_risk
 node_risk_reduction, link_risk_reduction
 ```
 
-这是诊断字段，当前不进入 reward。其目的在于确认 `link-only` 重路由是否降低实际链路风险；若节点风险始终主导 `max(...)`，全局风险变化为零并不代表路由优化没有效果。只有在该诊断确认后，才考虑下一轮 HAC 专用风险 reward 组合设计。
+这些字段先用于诊断 `link-only` 重路由是否降低实际链路风险；若节点风险始终主导 `max(...)`，全局风险变化为零并不代表路由优化没有效果。诊断确认后再定义 HAC 专用风险 reward 组合，统一系统指标不变。
 
 诊断结果确认：`link-only` 的 67 次 accepted reroute 中有 57 次降低链路风险，但全局与节点风险变化均为零；`partial` 的节点、链路风险平均均下降，`full` 的两类风险平均均恶化。因此 HAC reward 的 `risk` 分量已改为：
 
@@ -233,16 +233,54 @@ stage 2: only when MIGRATE, choose one of 4 delays x 3 scopes
 
 Argmax calibration evaluation 还记录二元决策的 `mean_keep_probability` 与 `mean_migration_vs_keep_logit_margin`。当 KEEP rate 为零时，这两个字段用于判断策略是接近 KEEP/MIGRATE 边界，还是迁移决策明显占优；在此诊断完成前不继续扫描风险权重。
 
+## Reward 冻结与周期验证
+
+在固定 calibration seeds `900, 901, 902` 的 deterministic argmax rollout 上，`risk_weight=20` 相对 `risk_weight=2` 取得稳定的正平均复合风险改善，同时未观察到 SLA 恶化。因此后续训练固定：
+
+```text
+risk=20
+cost=disruption=sla=future_sla=failure=1
+```
+
+该结论只用于超参数冻结，不作为统计显著性结论。calibration seeds 自此封存，不参与 checkpoint 选择或最终测试。
+
+长训练采用独立的 train / validation / test seed split。Trainer 支持每隔 `validation_interval` 个训练 episode，在 held-out validation seeds 上执行 deterministic argmax evaluation，并写出：
+
+```text
+validation_history.json
+best_upper.pt
+best_lower.pt
+best_metadata.json
+```
+
+checkpoint 选择规则预先固定为：
+
+```text
+feasible <=> accepted_migrations > 0
+            and accepted_avg_risk_reduction >= 0
+
+among feasible checkpoints:
+minimize SLA violation
+tie-break: total cost -> total disruption -> migrations
+```
+
+要求至少存在一次成功迁移，避免全 KEEP 导致“零风险变化”而被误判为风险可行。成本和中断作为 tie-break 与监控项，不作为不稳定的硬可行性约束。若所有 checkpoint 均不满足风险约束，`best_checkpoint_found=false`，不产生 `best_upper.pt` / `best_lower.pt`。
+
+建议的正式开发 split：训练 seed 从 `100` 起，validation 使用 `1200..1209`，最终 untouched test 使用 `2000..2019`。三者不得重叠。
+
 ## 常用命令
 
 ```bash
 python -B train_multiservice_hac.py \
   --stgcn-checkpoint artifacts/stgcn_h3/stgcn_best.pt \
-  --episodes 10 \
+  --episodes 200 \
   --steps 100 \
-  --seed 300 \
-  --diagnostic \
-  --output artifacts/hac_soft_risk_gate_audit
+  --seed 100 \
+  --reward-risk-weight 20 \
+  --calibration-eval-seeds \
+  --validation-seeds 1200 1201 1202 1203 1204 1205 1206 1207 1208 1209 \
+  --validation-interval 10 \
+  --output artifacts/hac_train_risk20
 ```
 
 ```bash

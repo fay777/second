@@ -6,7 +6,7 @@ import random
 from collections import Counter, deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import torch
 from torch.distributions import Categorical
@@ -308,6 +308,7 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
         "migrations": result["metrics"]["migrations"],
         "total_realized_cost": result["metrics"]["total_realized_cost"],
         "total_disruption": result["metrics"]["total_disruption"],
+        "rollback_count": result["rollback_count"],
         "upper_keep_count": result["upper_keep_count"],
         "upper_actions": sum(event.event_type == "upper_decision" for event in result["hac_events"]),
         "keep_rate": result["upper_keep_count"] / max(1, sum(event.event_type == "upper_decision" for event in result["hac_events"])),
@@ -317,6 +318,63 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
         "execution_stages": dict(sorted(stage_counts.items())),
         **diagnostics,
     }
+
+
+def summarize_validation(evaluations, episode: int) -> Dict[str, float]:
+    """Aggregate fixed-seed argmax validation without mixing seed-level ratios."""
+    accepted = sum(row["accepted_migrations"] for row in evaluations)
+    execution_events = sum(row["execution_events"] for row in evaluations)
+    upper_actions = sum(row["upper_actions"] for row in evaluations)
+    keep_count = sum(row["upper_keep_count"] for row in evaluations)
+    weighted = lambda key: sum(row["accepted_migrations"] * row[key] for row in evaluations) / max(1, accepted)
+    return {
+        "episode": episode,
+        "validation_seeds": [row["seed"] for row in evaluations],
+        "val_sla_violation_rate": sum(row["sla_violation_rate"] for row in evaluations) / len(evaluations),
+        "val_availability": sum(row["availability"] for row in evaluations) / len(evaluations),
+        "val_admission_rate": sum(row["admission_rate"] for row in evaluations) / len(evaluations),
+        "val_migrations": sum(row["migrations"] for row in evaluations) / len(evaluations),
+        "val_total_realized_cost": sum(row["total_realized_cost"] for row in evaluations) / len(evaluations),
+        "val_total_disruption": sum(row["total_disruption"] for row in evaluations) / len(evaluations),
+        "val_execution_events": execution_events,
+        "val_accepted_migrations": accepted,
+        "val_execution_success_rate": accepted / max(1, execution_events),
+        "val_keep_rate": keep_count / max(1, upper_actions),
+        "val_accepted_avg_risk_reduction": weighted("accepted_avg_risk_reduction"),
+        "val_accepted_avg_node_risk_reduction": weighted("accepted_avg_node_risk_reduction"),
+        "val_accepted_avg_link_risk_reduction": weighted("accepted_avg_link_risk_reduction"),
+        "val_risk_improved_fraction": sum(
+            row["accepted_risk_improved_count"] for row in evaluations
+        ) / max(1, accepted),
+        "val_risk_worsened_fraction": sum(
+            row["accepted_risk_worsened_count"] for row in evaluations
+        ) / max(1, accepted),
+        "val_accepted_avg_realized_cost": weighted("accepted_avg_realized_cost"),
+        "val_accepted_avg_disruption": weighted("accepted_avg_disruption"),
+        "val_rollback_rate": sum(row["rollback_count"] for row in evaluations) / max(1, execution_events),
+    }
+
+
+def is_better_checkpoint(candidate: Dict[str, float], best: Optional[Dict[str, float]]) -> bool:
+    """Select a risk-feasible checkpoint by SLA, then cost, disruption, and migrations."""
+    if (
+        candidate["val_accepted_migrations"] == 0
+        or candidate["val_accepted_avg_risk_reduction"] < 0.0
+    ):
+        return False
+    if best is None:
+        return True
+    for metric in (
+        "val_sla_violation_rate",
+        "val_total_realized_cost",
+        "val_total_disruption",
+        "val_migrations",
+    ):
+        if candidate[metric] < best[metric] - 1e-9:
+            return True
+        if candidate[metric] > best[metric] + 1e-9:
+            return False
+    return False
 
 
 def main():
@@ -340,14 +398,36 @@ def main():
         default=[900, 901, 902],
         help="Fixed seeds for post-training argmax calibration rollout; pass with no values to disable.",
     )
+    parser.add_argument(
+        "--validation-seeds",
+        type=int,
+        nargs="*",
+        default=[],
+        help="Held-out seeds for periodic argmax validation; pass with no values to disable.",
+    )
+    parser.add_argument(
+        "--validation-interval",
+        type=int,
+        default=10,
+        help="Run validation every N completed training episodes.",
+    )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--diagnostic", action="store_true", help="Print HAC action and reward-component diagnostics per episode.")
     parser.add_argument("--output", type=Path, default=Path("artifacts/multiservice_hac"))
     args = parser.parse_args()
     if args.episodes < 1 or args.steps < 1:
         raise ValueError("episodes and steps must be positive.")
+    if args.validation_interval < 1:
+        raise ValueError("validation_interval must be positive.")
     if not args.stgcn_checkpoint.is_file():
         raise FileNotFoundError(f"Missing ST-GCN checkpoint: {args.stgcn_checkpoint}")
+    training_seeds = set(range(args.seed, args.seed + args.episodes))
+    validation_seeds = set(args.validation_seeds)
+    calibration_seeds = set(args.calibration_eval_seeds)
+    if training_seeds & validation_seeds:
+        raise ValueError("validation_seeds must not overlap with per-episode training seeds.")
+    if validation_seeds & calibration_seeds:
+        raise ValueError("validation_seeds must not overlap with calibration_eval_seeds.")
     reward_weights = RewardWeights(
         risk=args.reward_risk_weight,
         cost=args.reward_cost_weight,
@@ -368,8 +448,12 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     history = []
     execution_audit = []
+    validation_history = []
+    best_validation = None
 
     for episode in range(args.episodes):
+        upper.train()
+        lower.train()
         upper_records, lower_records = [], []
 
         def upper_policy(obs):
@@ -539,6 +623,36 @@ def main():
                 f"cost={row['reward_cost_per_execution']:+.3f} sla={row['reward_sla_per_execution']:+.3f} "
                 f"failure={row['reward_failure_per_execution']:+.3f}"
             )
+        if args.validation_seeds and (episode + 1) % args.validation_interval == 0:
+            evaluations = [
+                evaluate_argmax_policy(upper, lower, seed, args.steps, args.stgcn_checkpoint, device)
+                for seed in args.validation_seeds
+            ]
+            validation = summarize_validation(evaluations, episode + 1)
+            validation_history.append(validation)
+            selected = is_better_checkpoint(validation, best_validation)
+            validation["risk_feasible"] = bool(
+                validation["val_accepted_migrations"] > 0
+                and validation["val_accepted_avg_risk_reduction"] >= 0.0
+            )
+            validation["selected_as_best"] = selected
+            print(
+                f"validation episode={episode + 1:03d} sla={validation['val_sla_violation_rate']:.4f} "
+                f"risk={validation['val_accepted_avg_risk_reduction']:+.5f} "
+                f"keep={validation['val_keep_rate']:.3f} "
+                f"migrations={validation['val_migrations']:.2f} feasible={validation['risk_feasible']}"
+            )
+            if selected:
+                best_validation = validation
+                checkpoint_payload = {
+                    "training_episode": episode + 1,
+                    "selection": validation,
+                    "stgcn_checkpoint": str(args.stgcn_checkpoint),
+                    "reward_weights": asdict(reward_weights),
+                    "upper_action_encoding": "binary_keep_migrate_plus_conditional_delay_scope",
+                }
+                torch.save({"state_dict": upper.state_dict(), **checkpoint_payload}, args.output / "best_upper.pt")
+                torch.save({"state_dict": lower.state_dict(), **checkpoint_payload}, args.output / "best_lower.pt")
     calibration_evaluations = [
         evaluate_argmax_policy(upper, lower, seed, args.steps, args.stgcn_checkpoint, device)
         for seed in args.calibration_eval_seeds
@@ -577,6 +691,23 @@ def main():
     (args.output / "execution_audit.json").write_text(json.dumps(execution_audit, indent=2), encoding="utf-8")
     (args.output / "calibration_evaluation.json").write_text(
         json.dumps(calibration_evaluations, indent=2), encoding="utf-8"
+    )
+    (args.output / "validation_history.json").write_text(
+        json.dumps(validation_history, indent=2), encoding="utf-8"
+    )
+    (args.output / "best_metadata.json").write_text(
+        json.dumps(
+            {
+                "selection_rule": (
+                    "accepted_migrations > 0 and accepted_avg_risk_reduction >= 0; "
+                    "then minimize SLA, total cost, total disruption, migrations"
+                ),
+                "best_checkpoint_found": best_validation is not None,
+                "best_validation": best_validation,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
     )
 
 
