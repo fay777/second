@@ -31,6 +31,7 @@ UPPER_ACTION_DIM = 2 + UPPER_MIGRATION_ACTION_DIM  # Binary decision + condition
 UPPER_MIGRATION_OFFSET = UPPER_PLANNING_ACTION_DIM - UPPER_MIGRATION_ACTION_DIM
 FUTURE_SLA_HORIZON = 3
 REWARD_COMPONENTS = ("risk", "cost", "disruption", "sla", "future_sla", "failure")
+CHECKPOINT_EPSILON = 1e-6
 
 
 @dataclass(frozen=True)
@@ -166,6 +167,28 @@ def build_environment(seed, steps, checkpoint, device, upper_policy, lower_polic
         workload=generate_workload_trace(scenario, config, 3, steps),
         hac_worker=worker,
     )
+
+
+def evaluate_static_policy(seed, steps):
+    """Compute the no-reconfiguration reference on a held-out matched workload."""
+    scenario = DynamicSAGINScenario(ScenarioConfig("sagin100", 100, 4), seed)
+    config = MultiServiceConfig(policy="static")
+    executor = ElasticReconfigurationExecutor(ExecutionConfig())
+    env = MultiServiceDynamicEnv(
+        scenario,
+        None,
+        MigrationPlanner(PlanningConfig()),
+        executor,
+        config,
+        workload=generate_workload_trace(scenario, config, 3, steps),
+    )
+    result = env.run(steps)
+    return {
+        "seed": seed,
+        "sla_violation_rate": result["sla_violation_rate"],
+        "availability": result["availability"],
+        "admission_rate": result["admission_rate"],
+    }
 
 
 def future_keep_penalty(event, service_sla_history):
@@ -355,11 +378,16 @@ def summarize_validation(evaluations, episode: int) -> Dict[str, float]:
     }
 
 
-def is_better_checkpoint(candidate: Dict[str, float], best: Optional[Dict[str, float]]) -> bool:
-    """Select a risk-feasible checkpoint by SLA, then cost, disruption, and migrations."""
+def is_better_checkpoint(
+    candidate: Dict[str, float],
+    best: Optional[Dict[str, float]],
+    static_sla_violation_rate: float,
+) -> bool:
+    """Select only proactive improvements over Static, then rank by SLA and cost."""
     if (
         candidate["val_accepted_migrations"] == 0
-        or candidate["val_accepted_avg_risk_reduction"] < 0.0
+        or candidate["val_accepted_avg_risk_reduction"] <= CHECKPOINT_EPSILON
+        or candidate["val_sla_violation_rate"] >= static_sla_violation_rate - CHECKPOINT_EPSILON
     ):
         return False
     if best is None:
@@ -450,6 +478,13 @@ def main():
     execution_audit = []
     validation_history = []
     best_validation = None
+    static_validation = []
+    if args.validation_seeds:
+        static_validation = [evaluate_static_policy(seed, args.steps) for seed in args.validation_seeds]
+        static_validation_sla = sum(row["sla_violation_rate"] for row in static_validation) / len(static_validation)
+        print(f"validation static reference: sla={static_validation_sla:.4f}")
+    else:
+        static_validation_sla = None
 
     for episode in range(args.episodes):
         upper.train()
@@ -629,16 +664,22 @@ def main():
                 for seed in args.validation_seeds
             ]
             validation = summarize_validation(evaluations, episode + 1)
+            validation["val_static_sla_violation_rate"] = static_validation_sla
+            validation["val_sla_improvement_over_static"] = (
+                static_validation_sla - validation["val_sla_violation_rate"]
+            )
             validation_history.append(validation)
-            selected = is_better_checkpoint(validation, best_validation)
+            selected = is_better_checkpoint(validation, best_validation, static_validation_sla)
             validation["risk_feasible"] = bool(
                 validation["val_accepted_migrations"] > 0
-                and validation["val_accepted_avg_risk_reduction"] >= 0.0
+                and validation["val_accepted_avg_risk_reduction"] > CHECKPOINT_EPSILON
+                and validation["val_sla_improvement_over_static"] > CHECKPOINT_EPSILON
             )
             validation["selected_as_best"] = selected
             print(
                 f"validation episode={episode + 1:03d} sla={validation['val_sla_violation_rate']:.4f} "
                 f"risk={validation['val_accepted_avg_risk_reduction']:+.5f} "
+                f"sla_gain={validation['val_sla_improvement_over_static']:+.4f} "
                 f"keep={validation['val_keep_rate']:.3f} "
                 f"migrations={validation['val_migrations']:.2f} feasible={validation['risk_feasible']}"
             )
@@ -699,11 +740,13 @@ def main():
         json.dumps(
             {
                 "selection_rule": (
-                    "accepted_migrations > 0 and accepted_avg_risk_reduction >= 0; "
+                    "accepted_migrations > 0 and accepted_avg_risk_reduction > 0 and "
+                    "validation SLA is strictly below matched Static SLA; "
                     "then minimize SLA, total cost, total disruption, migrations"
                 ),
                 "best_checkpoint_found": best_validation is not None,
                 "best_validation": best_validation,
+                "static_validation": static_validation,
             },
             indent=2,
         ),

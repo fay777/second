@@ -257,14 +257,15 @@ checkpoint 选择规则预先固定为：
 
 ```text
 feasible <=> accepted_migrations > 0
-            and accepted_avg_risk_reduction >= 0
+            and accepted_avg_risk_reduction > 0
+            and validation SLA < matched Static SLA
 
 among feasible checkpoints:
 minimize SLA violation
 tie-break: total cost -> total disruption -> migrations
 ```
 
-要求至少存在一次成功迁移，避免全 KEEP 导致“零风险变化”而被误判为风险可行。成本和中断作为 tie-break 与监控项，不作为不稳定的硬可行性约束。若所有 checkpoint 均不满足风险约束，`best_checkpoint_found=false`，不产生 `best_upper.pt` / `best_lower.pt`。
+Trainer 会在 validation 开始前按相同 workload seeds 计算一次 Static SLA reference，并写入 `best_metadata.json`。要求正风险改善和严格优于 Static，避免全 KEEP 或极少量零风险迁移被误判为可行。成本和中断作为 tie-break 与监控项，不作为不稳定的硬可行性约束。若所有 checkpoint 均不满足约束，`best_checkpoint_found=false`，不产生 `best_upper.pt` / `best_lower.pt`。
 
 建议的正式开发 split：训练 seed 从 `100` 起，validation 使用 `1200..1209`，最终 untouched test 使用 `2000..2019`。三者不得重叠。
 
