@@ -29,9 +29,10 @@ UPPER_PLANNING_ACTION_DIM = 24  # Existing PlanningEnv encoding.
 UPPER_MIGRATION_ACTION_DIM = 12  # 4 delays x 3 scopes.
 UPPER_ACTION_DIM = 2 + UPPER_MIGRATION_ACTION_DIM  # Binary decision + conditional migration action.
 UPPER_MIGRATION_OFFSET = UPPER_PLANNING_ACTION_DIM - UPPER_MIGRATION_ACTION_DIM
-UPPER_HORIZON_RISK_START = 9  # state = service(5) + expected/max risk(4) + horizon risk(3) + cost(5)
+UPPER_EXPECTED_NODE_RISK_INDEX = 5
+UPPER_EXPECTED_LINK_RISK_INDEX = 6
+UPPER_HORIZON_RISK_START = 9
 UPPER_HORIZON_RISK_END = 12
-KEEP_RISK_THRESHOLD = 0.5  # Matches the frozen TopRiskKSelector risk threshold.
 FUTURE_SLA_HORIZON = 3
 REWARD_COMPONENTS = ("risk", "cost", "disruption", "sla", "future_sla", "failure")
 CHECKPOINT_EPSILON = 1e-6
@@ -63,6 +64,36 @@ def migration_action_to_planning_action(action: int) -> int:
     if not 0 <= action < UPPER_MIGRATION_ACTION_DIM:
         raise ValueError(f"Conditional migration action is outside action space: {action}")
     return action + UPPER_MIGRATION_OFFSET
+
+
+def upper_decision_exposure(event: HACWorkerEvent) -> Tuple[float, float]:
+    """Return expected node/link exposure and peak horizon risk for one Upper decision."""
+    observation = event.decision.observation
+    if observation is None:
+        return 0.0, 0.0
+    state = observation.state
+    component_exposure = float(
+        state[UPPER_EXPECTED_NODE_RISK_INDEX] + state[UPPER_EXPECTED_LINK_RISK_INDEX]
+    )
+    peak_horizon_risk = float(max(state[UPPER_HORIZON_RISK_START:UPPER_HORIZON_RISK_END]))
+    return component_exposure, peak_horizon_risk
+
+
+def upper_decision_diagnostics(events) -> Dict[str, float]:
+    """Report predicted exposure for KEEP and MIGRATE actions on their shared state space."""
+    decisions = [event for event in events if event.event_type == "upper_decision"]
+    keep = [event for event in decisions if not event.decision.migrate]
+    migrate = [event for event in decisions if event.decision.migrate]
+
+    def mean_exposure(records, index: int) -> float:
+        return sum(upper_decision_exposure(event)[index] for event in records) / max(1, len(records))
+
+    return {
+        "upper_keep_component_exposure": mean_exposure(keep, 0),
+        "upper_migrate_component_exposure": mean_exposure(migrate, 0),
+        "upper_keep_peak_horizon_risk": mean_exposure(keep, 1),
+        "upper_migrate_peak_horizon_risk": mean_exposure(migrate, 1),
+    }
 
 
 def upper_action_distributions(model, state, planning_mask, device):
@@ -116,21 +147,10 @@ def weighted_reward(raw_components: Dict[str, float], weights: RewardWeights) ->
     return sum(weighted.values()), weighted
 
 
-def keep_risk_exposure(event: HACWorkerEvent) -> float:
-    """Return the selected service's predicted risk above the frozen attention threshold."""
-    observation = event.decision.observation
-    if observation is None or event.decision.migrate:
-        return 0.0
-    horizon_risk = observation.state[UPPER_HORIZON_RISK_START:UPPER_HORIZON_RISK_END]
-    return max(0.0, float(max(horizon_risk, default=0.0)) - KEEP_RISK_THRESHOLD)
-
-
 def event_reward(event: HACWorkerEvent, weights: RewardWeights) -> Tuple[float, Dict[str, float], Dict[str, float]]:
     """Return raw and calibrated reward components for reproducible experiments."""
     components = {name: 0.0 for name in REWARD_COMPONENTS}
     if event.execution is None:
-        # A selected high-risk service cannot receive a free KEEP action.
-        components["risk"] = -keep_risk_exposure(event)
         reward, weighted = weighted_reward(components, weights)
         return reward, components, weighted
     outcome = event.execution.outcome
@@ -205,10 +225,8 @@ def evaluate_static_policy(seed, steps):
     }
 
 
-def future_keep_penalty(event, service_sla_history):
-    """Penalize a KEEP action for observed SLA violations in the ST-GCN horizon."""
-    if event.decision.migrate:
-        return 0.0
+def future_sla_penalty(event, service_sla_history):
+    """Credit every Upper action by the observed SLA outcome over the ST-GCN horizon."""
     future = [
         service_sla_history[(time_step, event.service_id)]
         for time_step in range(event.time_step + 1, event.time_step + FUTURE_SLA_HORIZON + 1)
@@ -230,8 +248,8 @@ def assign_event_rewards(events, service_sla_history, upper_records, lower_recor
     lower_trajectories = []
     for event in events:
         reward, components, weighted_components = event_reward(event, weights)
-        if event.event_type == "upper_decision" and not event.decision.migrate:
-            components["future_sla"] = future_keep_penalty(event, service_sla_history)
+        if event.event_type == "upper_decision":
+            components["future_sla"] = future_sla_penalty(event, service_sla_history)
             reward, weighted_components = weighted_reward(components, weights)
         for name, value in components.items():
             raw_totals[name] += value
@@ -272,23 +290,27 @@ def execution_diagnostics(execution_events):
         deltas = [float(event.execution.outcome.risk_reduction) for event in accepted]
         node_deltas = [float(event.execution.outcome.node_risk_reduction) for event in accepted]
         link_deltas = [float(event.execution.outcome.link_risk_reduction) for event in accepted]
+        component_deltas = [node + link for node, link in zip(node_deltas, link_deltas)]
         diagnostics[f"execution_scope_{scope}_attempts"] = len(attempts)
         diagnostics[f"accepted_scope_{scope}"] = len(accepted)
         diagnostics[f"accepted_rate_scope_{scope}"] = len(accepted) / max(1, len(attempts))
         diagnostics[f"accepted_avg_risk_reduction_scope_{scope}"] = sum(deltas) / max(1, len(deltas))
         diagnostics[f"accepted_avg_node_risk_reduction_scope_{scope}"] = sum(node_deltas) / max(1, len(node_deltas))
         diagnostics[f"accepted_avg_link_risk_reduction_scope_{scope}"] = sum(link_deltas) / max(1, len(link_deltas))
+        diagnostics[f"accepted_avg_component_risk_reduction_scope_{scope}"] = sum(component_deltas) / max(1, len(component_deltas))
         diagnostics[f"accepted_risk_improved_scope_{scope}"] = sum(delta > 1e-9 for delta in deltas)
         diagnostics[f"accepted_risk_worsened_scope_{scope}"] = sum(delta < -1e-9 for delta in deltas)
         diagnostics[f"accepted_risk_unchanged_scope_{scope}"] = sum(abs(delta) <= 1e-9 for delta in deltas)
     deltas = [float(event.execution.outcome.risk_reduction) for event in accepted_events]
     node_deltas = [float(event.execution.outcome.node_risk_reduction) for event in accepted_events]
     link_deltas = [float(event.execution.outcome.link_risk_reduction) for event in accepted_events]
+    component_deltas = [node + link for node, link in zip(node_deltas, link_deltas)]
     positive = [delta for delta in deltas if delta > 1e-9]
     negative = [delta for delta in deltas if delta < -1e-9]
     diagnostics["accepted_avg_risk_reduction"] = sum(deltas) / max(1, len(deltas))
     diagnostics["accepted_avg_node_risk_reduction"] = sum(node_deltas) / max(1, len(node_deltas))
     diagnostics["accepted_avg_link_risk_reduction"] = sum(link_deltas) / max(1, len(link_deltas))
+    diagnostics["accepted_avg_component_risk_reduction"] = sum(component_deltas) / max(1, len(component_deltas))
     diagnostics["accepted_risk_improved_count"] = len(positive)
     diagnostics["accepted_risk_worsened_count"] = len(negative)
     diagnostics["accepted_risk_unchanged_count"] = sum(abs(delta) <= 1e-9 for delta in deltas)
@@ -335,6 +357,7 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
         result = env.run(steps)
     execution_events = [event for event in result["hac_events"] if event.execution is not None]
     diagnostics = execution_diagnostics(execution_events)
+    upper_diagnostics = upper_decision_diagnostics(result["hac_events"])
     stage_counts = Counter(event.execution.failure_stage for event in execution_events)
     return {
         "seed": seed,
@@ -354,6 +377,7 @@ def evaluate_argmax_policy(upper, lower, seed, steps, checkpoint, device):
         "no_candidate_host_rate": stage_counts["no_candidate_host"] / max(1, len(execution_events)),
         "execution_stages": dict(sorted(stage_counts.items())),
         **diagnostics,
+        **upper_diagnostics,
     }
 
 
@@ -380,6 +404,7 @@ def summarize_validation(evaluations, episode: int) -> Dict[str, float]:
         "val_accepted_avg_risk_reduction": weighted("accepted_avg_risk_reduction"),
         "val_accepted_avg_node_risk_reduction": weighted("accepted_avg_node_risk_reduction"),
         "val_accepted_avg_link_risk_reduction": weighted("accepted_avg_link_risk_reduction"),
+        "val_accepted_avg_component_risk_reduction": weighted("accepted_avg_component_risk_reduction"),
         "val_risk_improved_fraction": sum(
             row["accepted_risk_improved_count"] for row in evaluations
         ) / max(1, accepted),
@@ -389,6 +414,20 @@ def summarize_validation(evaluations, episode: int) -> Dict[str, float]:
         "val_accepted_avg_realized_cost": weighted("accepted_avg_realized_cost"),
         "val_accepted_avg_disruption": weighted("accepted_avg_disruption"),
         "val_rollback_rate": sum(row["rollback_count"] for row in evaluations) / max(1, execution_events),
+        "val_upper_keep_component_exposure": sum(
+            row["upper_keep_count"] * row["upper_keep_component_exposure"] for row in evaluations
+        ) / max(1, keep_count),
+        "val_upper_migrate_component_exposure": sum(
+            (row["upper_actions"] - row["upper_keep_count"]) * row["upper_migrate_component_exposure"]
+            for row in evaluations
+        ) / max(1, upper_actions - keep_count),
+        "val_upper_keep_peak_horizon_risk": sum(
+            row["upper_keep_count"] * row["upper_keep_peak_horizon_risk"] for row in evaluations
+        ) / max(1, keep_count),
+        "val_upper_migrate_peak_horizon_risk": sum(
+            (row["upper_actions"] - row["upper_keep_count"]) * row["upper_migrate_peak_horizon_risk"]
+            for row in evaluations
+        ) / max(1, upper_actions - keep_count),
     }
 
 
@@ -400,7 +439,7 @@ def is_better_checkpoint(
     """Select only proactive improvements over Static, then rank by SLA and cost."""
     if (
         candidate["val_accepted_migrations"] == 0
-        or candidate["val_accepted_avg_risk_reduction"] <= CHECKPOINT_EPSILON
+        or candidate["val_accepted_avg_component_risk_reduction"] <= CHECKPOINT_EPSILON
         or candidate["val_sla_violation_rate"] >= static_sla_violation_rate - CHECKPOINT_EPSILON
     ):
         return False
@@ -544,13 +583,9 @@ def main():
         execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
         upper_action_count = max(1, len(upper_records))
         execution_events = [event for event in result["hac_events"] if event.execution is not None]
-        keep_exposure = sum(
-            keep_risk_exposure(event)
-            for event in result["hac_events"]
-            if event.event_type == "upper_decision" and not event.decision.migrate
-        )
         stage_counts = Counter(event.execution.failure_stage for event in execution_events)
         diagnostics = execution_diagnostics(execution_events)
+        upper_diagnostics = upper_decision_diagnostics(result["hac_events"])
         execution_raw_totals = {name: 0.0 for name in REWARD_COMPONENTS}
         execution_weighted_totals = {name: 0.0 for name in REWARD_COMPONENTS}
         for event in execution_events:
@@ -590,9 +625,8 @@ def main():
             "keep_rate": result["upper_keep_count"] / upper_action_count,
             "execution_success_rate": result["metrics"]["migrations"] / max(1, execution_attempts),
             "rollback_rate": result["rollback_count"] / max(1, execution_attempts),
-            "keep_risk_exposure": keep_exposure,
-            "keep_risk_exposure_per_keep": keep_exposure / max(1, result["upper_keep_count"]),
             **diagnostics,
+            **upper_diagnostics,
             **{f"execution_stage_{stage}": count for stage, count in sorted(stage_counts.items())},
             **{f"reward_{name}": value for name, value in reward_totals.items()},
             **{f"reward_raw_{name}": value for name, value in raw_reward_totals.items()},
@@ -651,7 +685,12 @@ def main():
             )
             print(
                 f"  component risk delta: node={row['accepted_avg_node_risk_reduction']:+.4f} "
-                f"link={row['accepted_avg_link_risk_reduction']:+.4f}"
+                f"link={row['accepted_avg_link_risk_reduction']:+.4f} "
+                f"component={row['accepted_avg_component_risk_reduction']:+.4f}"
+            )
+            print(
+                f"  Upper exposure: keep={row['upper_keep_component_exposure']:.3f} "
+                f"migrate={row['upper_migrate_component_exposure']:.3f}"
             )
             print(
                 f"  scope accepted rate: link={row['accepted_rate_scope_link-only']:.3f} "
@@ -675,10 +714,6 @@ def main():
                 f"future_sla={row['reward_raw_future_sla']:+.3f} failure={row['reward_raw_failure']:+.3f}"
             )
             print(
-                f"  KEEP risk exposure: total={row['keep_risk_exposure']:.3f} "
-                f"per_keep={row['keep_risk_exposure_per_keep']:.3f}"
-            )
-            print(
                 f"  reward per execution: risk={row['reward_risk_per_execution']:+.3f} "
                 f"cost={row['reward_cost_per_execution']:+.3f} sla={row['reward_sla_per_execution']:+.3f} "
                 f"failure={row['reward_failure_per_execution']:+.3f}"
@@ -697,13 +732,14 @@ def main():
             selected = is_better_checkpoint(validation, best_validation, static_validation_sla)
             validation["risk_feasible"] = bool(
                 validation["val_accepted_migrations"] > 0
-                and validation["val_accepted_avg_risk_reduction"] > CHECKPOINT_EPSILON
+                and validation["val_accepted_avg_component_risk_reduction"] > CHECKPOINT_EPSILON
                 and validation["val_sla_improvement_over_static"] > CHECKPOINT_EPSILON
             )
             validation["selected_as_best"] = selected
             print(
                 f"validation episode={episode + 1:03d} sla={validation['val_sla_violation_rate']:.4f} "
-                f"risk={validation['val_accepted_avg_risk_reduction']:+.5f} "
+                f"component_risk={validation['val_accepted_avg_component_risk_reduction']:+.5f} "
+                f"global_risk={validation['val_accepted_avg_risk_reduction']:+.5f} "
                 f"sla_gain={validation['val_sla_improvement_over_static']:+.4f} "
                 f"keep={validation['val_keep_rate']:.3f} "
                 f"migrations={validation['val_migrations']:.2f} feasible={validation['risk_feasible']}"
@@ -731,7 +767,7 @@ def main():
         "system_risk_aggregation": "max(mean_node_risk, mean_link_risk)",
         "hac_component_risk_diagnostics": True,
         "hac_risk_reward": "node_risk_reduction + link_risk_reduction",
-        "keep_risk_penalty": "-max(0, peak_horizon_risk - 0.5), weighted by risk_weight",
+        "future_sla_credit": "all Upper actions receive observed H=3 future SLA penalty",
         "upper_state_dim": UPPER_STATE_DIM,
         "upper_action_dim": UPPER_ACTION_DIM,
         "upper_planning_action_dim": UPPER_PLANNING_ACTION_DIM,
@@ -766,7 +802,7 @@ def main():
         json.dumps(
             {
                 "selection_rule": (
-                    "accepted_migrations > 0 and accepted_avg_risk_reduction > 0 and "
+                    "accepted_migrations > 0 and accepted_avg_component_risk_reduction > 0 and "
                     "validation SLA is strictly below matched Static SLA; "
                     "then minimize SLA, total cost, total disruption, migrations"
                 ),

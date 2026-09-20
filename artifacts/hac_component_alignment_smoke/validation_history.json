@@ -1,0 +1,35 @@
+[
+  {
+    "episode": 1,
+    "validation_seeds": [
+      1200
+    ],
+    "val_sla_violation_rate": 0.5300207039337475,
+    "val_availability": 1.0,
+    "val_admission_rate": 0.6363636363636364,
+    "val_migrations": 25.0,
+    "val_total_realized_cost": 22.183333333333334,
+    "val_total_disruption": 23.5,
+    "val_execution_events": 44,
+    "val_accepted_migrations": 25,
+    "val_execution_success_rate": 0.5681818181818182,
+    "val_keep_rate": 0.0,
+    "val_accepted_avg_risk_reduction": -0.002639894541766903,
+    "val_accepted_avg_node_risk_reduction": -0.002639894541766903,
+    "val_accepted_avg_link_risk_reduction": 0.0017046463452110056,
+    "val_accepted_avg_component_risk_reduction": -0.0009352481965558973,
+    "val_risk_improved_fraction": 0.24,
+    "val_risk_worsened_fraction": 0.64,
+    "val_accepted_avg_realized_cost": 0.8873333333333333,
+    "val_accepted_avg_disruption": 0.94,
+    "val_rollback_rate": 0.4318181818181818,
+    "val_upper_keep_component_exposure": 0.0,
+    "val_upper_migrate_component_exposure": 0.6366757696325128,
+    "val_upper_keep_peak_horizon_risk": 0.0,
+    "val_upper_migrate_peak_horizon_risk": 0.49952535331249237,
+    "val_static_sla_violation_rate": 0.5362318840579711,
+    "val_sla_improvement_over_static": 0.006211180124223614,
+    "risk_feasible": false,
+    "selected_as_best": false
+  }
+]

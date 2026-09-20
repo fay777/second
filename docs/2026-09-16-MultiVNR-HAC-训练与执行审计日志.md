@@ -213,13 +213,24 @@ node_risk_reduction + link_risk_reduction
 
 该项不引入额外比例超参数，确保节点迁移和链路重路由都能获得与其实际风险变化一致的学习信号。统一系统指标继续使用 `max(mean_node_risk, mean_link_risk)`，所有 baseline 的统计定义不变。此前 raw-return 的 `risk=2/20/40` checkpoint 仅作诊断，不再作为此新 reward 定义的 calibration 对照。
 
-长训练进一步发现，仅对迁移结果奖励风险下降会导致 Upper 选择全 KEEP：迁移承担成本、中断与失败惩罚，而高风险不作为只获得较弱的 future-SLA 惩罚。为保持主动性，Upper 的 selected-service KEEP 现在额外接收：
+长训练进一步发现，仅对迁移结果奖励风险下降会导致 Upper 选择全 KEEP：迁移承担成本、中断与失败惩罚，而主动迁移若避免未来违约却没有获得长期 credit。曾尝试对高风险 KEEP 施加预测风险暴露惩罚，但该信号在实际候选上过于稀疏，仍会塌缩。
+
+现在改为所有 Upper action 都依据原始决策时刻之后 `H=3` 个时隙的真实 SLA history 接收 `future_sla` credit：
 
 ```text
-r_keep_risk = -max(0, peak predicted horizon risk - 0.5)
+r_future_sla = - mean(SLA violations over the next H slots)
 ```
 
-其中 `0.5` 与冻结的 Top-1 Selector attention threshold 一致，且该项直接复用 `risk_weight=20`，不新增 reward 权重。迁移仍获得实际的 `node_risk_reduction + link_risk_reduction`。训练 history 新增 `keep_risk_exposure` 与 `keep_risk_exposure_per_keep`，用于验证 KEEP penalty 是否真正存在并避免再次出现全 KEEP 塌缩。
+因此 KEEP 导致后续违约仍被惩罚；而即时或延迟迁移若避免后续违约，则不再遗漏其长期收益。迁移仍获得实际的 `node_risk_reduction + link_risk_reduction`，且不新增 reward 权重。此前 KEEP-risk-exposure 版本仅为失败诊断，不参与后续实验。
+
+当前先不引入任意的 KEEP-risk 系数。Trainer 仅记录所有 Upper decision 的预测风险暴露：
+
+```text
+component exposure = expected node risk + expected link risk
+peak horizon risk = max(predicted deployment risks over H horizons)
+```
+
+训练与 validation 分别输出 KEEP / MIGRATE 的两类 exposure，用于后续确定是否确有“高风险 KEEP”且需要额外 penalty。这样不会在缺少尺度证据时人为引入新的 reward 超参数。
 
 ## Upper 动作编码修正
 
@@ -265,7 +276,7 @@ checkpoint 选择规则预先固定为：
 
 ```text
 feasible <=> accepted_migrations > 0
-            and accepted_avg_risk_reduction > 0
+            and accepted_avg_component_risk_reduction > 0
             and validation SLA < matched Static SLA
 
 among feasible checkpoints:
@@ -273,7 +284,7 @@ minimize SLA violation
 tie-break: total cost -> total disruption -> migrations
 ```
 
-Trainer 会在 validation 开始前按相同 workload seeds 计算一次 Static SLA reference，并写入 `best_metadata.json`。要求正风险改善和严格优于 Static，避免全 KEEP 或极少量零风险迁移被误判为可行。成本和中断作为 tie-break 与监控项，不作为不稳定的硬可行性约束。若所有 checkpoint 均不满足约束，`best_checkpoint_found=false`，不产生 `best_upper.pt` / `best_lower.pt`。
+Trainer 会在 validation 开始前按相同 workload seeds 计算一次 Static SLA reference，并写入 `best_metadata.json`。其中 `component risk = node risk reduction + link risk reduction` 与 HAC 的训练 reward 完全一致；`global risk = max(mean node risk, mean link risk)` 继续作为论文统一报告指标。要求正 component risk 改善和严格优于 Static，避免全 KEEP 或极少量零风险迁移被误判为可行。成本和中断作为 tie-break 与监控项，不作为不稳定的硬可行性约束。若所有 checkpoint 均不满足约束，`best_checkpoint_found=false`，不产生 `best_upper.pt` / `best_lower.pt`。
 
 建议的正式开发 split：训练 seed 从 `100` 起，validation 使用 `1200..1209`，最终 untouched test 使用 `2000..2019`。三者不得重叠。
 

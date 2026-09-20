@@ -1,0 +1,13 @@
+{
+  "selection_rule": "accepted_migrations > 0 and accepted_avg_component_risk_reduction > 0 and validation SLA is strictly below matched Static SLA; then minimize SLA, total cost, total disruption, migrations",
+  "best_checkpoint_found": false,
+  "best_validation": null,
+  "static_validation": [
+    {
+      "seed": 1200,
+      "sla_violation_rate": 0.5362318840579711,
+      "availability": 0.9813664596273292,
+      "admission_rate": 0.6363636363636364
+    }
+  ]
+}
