@@ -1,0 +1,30 @@
+[
+  {
+    "episode": 1,
+    "validation_seeds": [
+      1200
+    ],
+    "val_sla_violation_rate": 0.5383022774327122,
+    "val_availability": 1.0,
+    "val_admission_rate": 0.6363636363636364,
+    "val_migrations": 26.0,
+    "val_total_realized_cost": 22.227777777777778,
+    "val_total_disruption": 24.0,
+    "val_execution_events": 43,
+    "val_accepted_migrations": 26,
+    "val_execution_success_rate": 0.6046511627906976,
+    "val_keep_rate": 0.0,
+    "val_accepted_avg_risk_reduction": -0.0016440327085575656,
+    "val_accepted_avg_node_risk_reduction": -0.0016440327085575656,
+    "val_accepted_avg_link_risk_reduction": 0.001434416911733463,
+    "val_risk_improved_fraction": 0.23076923076923078,
+    "val_risk_worsened_fraction": 0.6153846153846154,
+    "val_accepted_avg_realized_cost": 0.8549145299145299,
+    "val_accepted_avg_disruption": 0.9230769230769231,
+    "val_rollback_rate": 0.3953488372093023,
+    "val_static_sla_violation_rate": 0.5362318840579711,
+    "val_sla_improvement_over_static": -0.0020703933747411307,
+    "risk_feasible": false,
+    "selected_as_best": false
+  }
+]

@@ -213,6 +213,14 @@ node_risk_reduction + link_risk_reduction
 
 该项不引入额外比例超参数，确保节点迁移和链路重路由都能获得与其实际风险变化一致的学习信号。统一系统指标继续使用 `max(mean_node_risk, mean_link_risk)`，所有 baseline 的统计定义不变。此前 raw-return 的 `risk=2/20/40` checkpoint 仅作诊断，不再作为此新 reward 定义的 calibration 对照。
 
+长训练进一步发现，仅对迁移结果奖励风险下降会导致 Upper 选择全 KEEP：迁移承担成本、中断与失败惩罚，而高风险不作为只获得较弱的 future-SLA 惩罚。为保持主动性，Upper 的 selected-service KEEP 现在额外接收：
+
+```text
+r_keep_risk = -max(0, peak predicted horizon risk - 0.5)
+```
+
+其中 `0.5` 与冻结的 Top-1 Selector attention threshold 一致，且该项直接复用 `risk_weight=20`，不新增 reward 权重。迁移仍获得实际的 `node_risk_reduction + link_risk_reduction`。训练 history 新增 `keep_risk_exposure` 与 `keep_risk_exposure_per_keep`，用于验证 KEEP penalty 是否真正存在并避免再次出现全 KEEP 塌缩。
+
 ## Upper 动作编码修正
 
 原 PlanningEnv 使用 24 个编码，其中实际上只有一个合法 KEEP：

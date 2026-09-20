@@ -29,6 +29,9 @@ UPPER_PLANNING_ACTION_DIM = 24  # Existing PlanningEnv encoding.
 UPPER_MIGRATION_ACTION_DIM = 12  # 4 delays x 3 scopes.
 UPPER_ACTION_DIM = 2 + UPPER_MIGRATION_ACTION_DIM  # Binary decision + conditional migration action.
 UPPER_MIGRATION_OFFSET = UPPER_PLANNING_ACTION_DIM - UPPER_MIGRATION_ACTION_DIM
+UPPER_HORIZON_RISK_START = 9  # state = service(5) + expected/max risk(4) + horizon risk(3) + cost(5)
+UPPER_HORIZON_RISK_END = 12
+KEEP_RISK_THRESHOLD = 0.5  # Matches the frozen TopRiskKSelector risk threshold.
 FUTURE_SLA_HORIZON = 3
 REWARD_COMPONENTS = ("risk", "cost", "disruption", "sla", "future_sla", "failure")
 CHECKPOINT_EPSILON = 1e-6
@@ -113,10 +116,21 @@ def weighted_reward(raw_components: Dict[str, float], weights: RewardWeights) ->
     return sum(weighted.values()), weighted
 
 
+def keep_risk_exposure(event: HACWorkerEvent) -> float:
+    """Return the selected service's predicted risk above the frozen attention threshold."""
+    observation = event.decision.observation
+    if observation is None or event.decision.migrate:
+        return 0.0
+    horizon_risk = observation.state[UPPER_HORIZON_RISK_START:UPPER_HORIZON_RISK_END]
+    return max(0.0, float(max(horizon_risk, default=0.0)) - KEEP_RISK_THRESHOLD)
+
+
 def event_reward(event: HACWorkerEvent, weights: RewardWeights) -> Tuple[float, Dict[str, float], Dict[str, float]]:
     """Return raw and calibrated reward components for reproducible experiments."""
     components = {name: 0.0 for name in REWARD_COMPONENTS}
     if event.execution is None:
+        # A selected high-risk service cannot receive a free KEEP action.
+        components["risk"] = -keep_risk_exposure(event)
         reward, weighted = weighted_reward(components, weights)
         return reward, components, weighted
     outcome = event.execution.outcome
@@ -530,6 +544,11 @@ def main():
         execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
         upper_action_count = max(1, len(upper_records))
         execution_events = [event for event in result["hac_events"] if event.execution is not None]
+        keep_exposure = sum(
+            keep_risk_exposure(event)
+            for event in result["hac_events"]
+            if event.event_type == "upper_decision" and not event.decision.migrate
+        )
         stage_counts = Counter(event.execution.failure_stage for event in execution_events)
         diagnostics = execution_diagnostics(execution_events)
         execution_raw_totals = {name: 0.0 for name in REWARD_COMPONENTS}
@@ -571,6 +590,8 @@ def main():
             "keep_rate": result["upper_keep_count"] / upper_action_count,
             "execution_success_rate": result["metrics"]["migrations"] / max(1, execution_attempts),
             "rollback_rate": result["rollback_count"] / max(1, execution_attempts),
+            "keep_risk_exposure": keep_exposure,
+            "keep_risk_exposure_per_keep": keep_exposure / max(1, result["upper_keep_count"]),
             **diagnostics,
             **{f"execution_stage_{stage}": count for stage, count in sorted(stage_counts.items())},
             **{f"reward_{name}": value for name, value in reward_totals.items()},
@@ -654,6 +675,10 @@ def main():
                 f"future_sla={row['reward_raw_future_sla']:+.3f} failure={row['reward_raw_failure']:+.3f}"
             )
             print(
+                f"  KEEP risk exposure: total={row['keep_risk_exposure']:.3f} "
+                f"per_keep={row['keep_risk_exposure_per_keep']:.3f}"
+            )
+            print(
                 f"  reward per execution: risk={row['reward_risk_per_execution']:+.3f} "
                 f"cost={row['reward_cost_per_execution']:+.3f} sla={row['reward_sla_per_execution']:+.3f} "
                 f"failure={row['reward_failure_per_execution']:+.3f}"
@@ -706,6 +731,7 @@ def main():
         "system_risk_aggregation": "max(mean_node_risk, mean_link_risk)",
         "hac_component_risk_diagnostics": True,
         "hac_risk_reward": "node_risk_reduction + link_risk_reduction",
+        "keep_risk_penalty": "-max(0, peak_horizon_risk - 0.5), weighted by risk_weight",
         "upper_state_dim": UPPER_STATE_DIM,
         "upper_action_dim": UPPER_ACTION_DIM,
         "upper_planning_action_dim": UPPER_PLANNING_ACTION_DIM,

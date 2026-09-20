@@ -1,0 +1,59 @@
+{
+  "stgcn_checkpoint": "artifacts\\stgcn_h3\\stgcn_best.pt",
+  "selector": "TopRiskKSelector",
+  "selector_top_k": 1,
+  "hac_enforce_risk_reduction": false,
+  "system_risk_aggregation": "max(mean_node_risk, mean_link_risk)",
+  "hac_component_risk_diagnostics": true,
+  "hac_risk_reward": "node_risk_reduction + link_risk_reduction",
+  "keep_risk_penalty": "-max(0, peak_horizon_risk - 0.5), weighted by risk_weight",
+  "upper_state_dim": 17,
+  "upper_action_dim": 14,
+  "upper_planning_action_dim": 24,
+  "upper_action_encoding": "binary_keep_migrate_plus_conditional_delay_scope",
+  "lower_state_dim": 9,
+  "lower_candidate_dim": 7,
+  "reward_components": [
+    "risk",
+    "cost",
+    "disruption",
+    "sla",
+    "future_sla",
+    "failure"
+  ],
+  "reward_weights": {
+    "risk": 20.0,
+    "cost": 1.0,
+    "disruption": 1.0,
+    "sla": 1.0,
+    "future_sla": 1.0,
+    "failure": 1.0
+  },
+  "critic_target": "raw_discounted_return",
+  "actor_advantage": "normalized_return_minus_detached_value",
+  "calibration_evaluation_policy": "argmax",
+  "calibration_evaluation_seeds": [],
+  "future_sla_horizon": 3,
+  "arguments": {
+    "stgcn_checkpoint": "artifacts\\stgcn_h3\\stgcn_best.pt",
+    "episodes": 1,
+    "steps": 100,
+    "seed": 400,
+    "lr": 0.0003,
+    "gamma": 0.99,
+    "reward_risk_weight": 20.0,
+    "reward_cost_weight": 1.0,
+    "reward_disruption_weight": 1.0,
+    "reward_sla_weight": 1.0,
+    "reward_future_sla_weight": 1.0,
+    "reward_failure_weight": 1.0,
+    "calibration_eval_seeds": [],
+    "validation_seeds": [
+      1200
+    ],
+    "validation_interval": 1,
+    "device": "cpu",
+    "diagnostic": true,
+    "output": "artifacts\\hac_keep_risk_smoke"
+  }
+}
