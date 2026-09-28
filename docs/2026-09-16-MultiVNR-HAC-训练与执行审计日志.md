@@ -310,6 +310,18 @@ validation_interval = 10
 
 Upper 和 Lower 的 actor/critic 均为独立 MLP，不共享 trunk。由于 critic 对 raw discounted return 的 MSE 可远大于 policy loss，不能对整个模型执行一次全局梯度裁剪，否则 critic 的大梯度会连带缩小 actor 梯度。Trainer 因此分别以 `1.0` 裁剪 actor 与 critic 参数组；这不改变 reward、学习率、熵正则、Selector、ST-GCN 或路由。
 
+若 batch rollout 后仍出现 KEEP 塌缩，先运行 critic-fit diagnostic，而不是直接修改 reward 或 value target。每个 optimizer update 记录：
+
+```text
+return mean/std
+value mean/std
+critic RMSE
+Pearson corr(value, return)
+explained variance = 1 - Var(return - value) / Var(return)
+```
+
+同时记录 Upper 二元 gate 的 KEEP/MIGRATE 数量、即时 reward 平均值和 discounted-return 平均值。若 EV 持续接近或低于零，且 value 未跟随 return 的均值与尺度，再单独测试固定比例 return scaling；若 KEEP 的实际 return 系统性更高，则优先检查 reward/跨服务 credit assignment，而不是误判为 critic 数值问题。
+
 ## 常用命令
 
 ```bash

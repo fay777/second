@@ -122,10 +122,21 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
             "critic_loss": 0.0,
             "return_mean": 0.0,
             "return_std": 0.0,
+            "value_mean": 0.0,
+            "value_std": 0.0,
+            "critic_rmse": 0.0,
+            "value_return_corr": 0.0,
+            "explained_variance": 0.0,
             "advantage_raw_std": 0.0,
             "grad_norm": 0.0,
             "actor_grad_norm": 0.0,
             "critic_grad_norm": 0.0,
+            "gate_keep_count": 0.0,
+            "gate_migrate_count": 0.0,
+            "gate_keep_reward_mean": 0.0,
+            "gate_migrate_reward_mean": 0.0,
+            "gate_keep_return_mean": 0.0,
+            "gate_migrate_return_mean": 0.0,
             "trajectories": 0.0,
             "records": 0.0,
         }
@@ -140,8 +151,20 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
     returns = torch.tensor(return_values, dtype=torch.float32, device=records[0]["value"].device)
     values = torch.stack([record["value"] for record in records])
     log_probs = torch.stack([record["log_prob"] for record in records])
-    advantages = returns - values.detach()
+    detached_values = values.detach()
+    advantages = returns - detached_values
     advantage_raw_std = advantages.std(unbiased=False)
+    return_variance = returns.var(unbiased=False)
+    explained_variance = 0.0
+    value_return_corr = 0.0
+    if return_variance.item() > 1e-6:
+        explained_variance = float(
+            (1.0 - advantages.var(unbiased=False) / return_variance).item()
+        )
+    if detached_values.std(unbiased=False).item() > 1e-6 and return_variance.item() > 1e-6:
+        value_return_corr = float(
+            torch.corrcoef(torch.stack((detached_values, returns)))[0, 1].item()
+        )
     if len(advantages) > 1:
         advantages = (advantages - advantages.mean()) / advantages.std(unbiased=False).clamp_min(1e-6)
     actor_loss = -(log_probs * advantages).mean()
@@ -149,23 +172,44 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
     loss = actor_loss + 0.5 * critic_loss
     optimizer.zero_grad()
     loss.backward()
-    # Actor and critic are separate MLPs. Clipping all model parameters together
-    # lets large raw-return critic gradients suppress the policy-gradient update.
+    # Actor and critic are separate MLPs, so clipping them independently preserves
+    # diagnostic visibility and avoids cross-head clipping coupling.
     actor_grad_norm = torch.nn.utils.clip_grad_norm_(model.actor.parameters(), 1.0)
     critic_grad_norm = torch.nn.utils.clip_grad_norm_(model.critic.parameters(), 1.0)
     optimizer.step()
+    gate_metrics = {}
+    groups = [record.get("action_group") for record in records]
+    rewards = torch.tensor(
+        [record["reward"] for record in records], dtype=torch.float32, device=returns.device
+    )
+    for group in ("keep", "migrate"):
+        indices = [index for index, value in enumerate(groups) if value == group]
+        prefix = f"gate_{group}"
+        gate_metrics[f"{prefix}_count"] = float(len(indices))
+        gate_metrics[f"{prefix}_reward_mean"] = (
+            float(rewards[indices].mean().item()) if indices else 0.0
+        )
+        gate_metrics[f"{prefix}_return_mean"] = (
+            float(returns[indices].mean().item()) if indices else 0.0
+        )
     return {
         "loss": float(loss.item()),
         "actor_loss": float(actor_loss.item()),
         "critic_loss": float(critic_loss.item()),
         "return_mean": float(returns.mean().item()),
         "return_std": float(returns.std(unbiased=False).item()),
+        "value_mean": float(detached_values.mean().item()),
+        "value_std": float(detached_values.std(unbiased=False).item()),
+        "critic_rmse": float(torch.sqrt(critic_loss.detach()).item()),
+        "value_return_corr": value_return_corr,
+        "explained_variance": explained_variance,
         "advantage_raw_std": float(advantage_raw_std.item()),
         "grad_norm": float(torch.hypot(actor_grad_norm, critic_grad_norm).item()),
         "actor_grad_norm": float(actor_grad_norm.item()),
         "critic_grad_norm": float(critic_grad_norm.item()),
         "trajectories": float(len(trajectories)),
         "records": float(len(records)),
+        **gate_metrics,
     }
 
 
@@ -601,7 +645,12 @@ def main():
                 migration_action = migration_dist.sample()
                 log_prob = log_prob + migration_dist.log_prob(migration_action)
                 planning_action = migration_action_to_planning_action(int(migration_action.item()))
-            upper_records.append({"log_prob": log_prob.squeeze(), "value": upper.value(state).squeeze(), "reward": 0.0})
+            upper_records.append({
+                "log_prob": log_prob.squeeze(),
+                "value": upper.value(state).squeeze(),
+                "reward": 0.0,
+                "action_group": "keep" if int(decision.item()) == 0 else "migrate",
+            })
             return planning_action
 
         def lower_policy(obs):
@@ -702,10 +751,21 @@ def main():
                 "critic_loss",
                 "return_mean",
                 "return_std",
+                "value_mean",
+                "value_std",
+                "critic_rmse",
+                "value_return_corr",
+                "explained_variance",
                 "advantage_raw_std",
                 "grad_norm",
                 "actor_grad_norm",
                 "critic_grad_norm",
+                "gate_keep_count",
+                "gate_migrate_count",
+                "gate_keep_reward_mean",
+                "gate_migrate_reward_mean",
+                "gate_keep_return_mean",
+                "gate_migrate_return_mean",
                 "trajectories",
                 "records",
             ):
@@ -754,11 +814,27 @@ def main():
                 f"critic_grad={upper_update['critic_grad_norm']:.3f} records={int(upper_update['records'])}"
             )
             print(
+                f"  upper critic fit: value={upper_update['value_mean']:+.3f} "
+                f"+/-{upper_update['value_std']:.3f} rmse={upper_update['critic_rmse']:.3f} "
+                f"corr={upper_update['value_return_corr']:+.3f} EV={upper_update['explained_variance']:+.3f}"
+            )
+            print(
                 f"  optimizer lower: actor={lower_update['actor_loss']:+.4f} "
                 f"critic={lower_update['critic_loss']:.4f} return={lower_update['return_mean']:+.3f} "
                 f"+/-{lower_update['return_std']:.3f} advantage_std={lower_update['advantage_raw_std']:.3f} "
                 f"actor_grad={lower_update['actor_grad_norm']:.3f} "
                 f"critic_grad={lower_update['critic_grad_norm']:.3f} records={int(lower_update['records'])}"
+            )
+            print(
+                f"  lower critic fit: value={lower_update['value_mean']:+.3f} "
+                f"+/-{lower_update['value_std']:.3f} rmse={lower_update['critic_rmse']:.3f} "
+                f"corr={lower_update['value_return_corr']:+.3f} EV={lower_update['explained_variance']:+.3f}"
+            )
+            print(
+                f"  upper gate returns: keep n={int(upper_update['gate_keep_count'])} "
+                f"r={upper_update['gate_keep_reward_mean']:+.3f} G={upper_update['gate_keep_return_mean']:+.3f} | "
+                f"migrate n={int(upper_update['gate_migrate_count'])} "
+                f"r={upper_update['gate_migrate_reward_mean']:+.3f} G={upper_update['gate_migrate_return_mean']:+.3f}"
             )
         if args.diagnostic:
             print(
