@@ -1,0 +1,108 @@
+{
+  "selection_rule": "accepted_migrations > 0 and accepted_avg_component_risk_reduction > 0 and validation SLA is strictly below matched Static SLA; then minimize SLA, total cost, total disruption, migrations",
+  "best_checkpoint_found": true,
+  "best_validation": {
+    "episode": 10,
+    "validation_seeds": [
+      1200,
+      1201,
+      1202,
+      1203,
+      1204,
+      1205,
+      1206,
+      1207,
+      1208,
+      1209
+    ],
+    "val_sla_violation_rate": 0.5915662174442538,
+    "val_availability": 0.9952251226221536,
+    "val_admission_rate": 0.634090909090909,
+    "val_migrations": 21.2,
+    "val_total_realized_cost": 19.18826984126984,
+    "val_total_disruption": 20.3,
+    "val_execution_events": 370,
+    "val_accepted_migrations": 212,
+    "val_execution_success_rate": 0.572972972972973,
+    "val_keep_rate": 0.06801007556675064,
+    "val_accepted_avg_risk_reduction": -0.000485317390276343,
+    "val_accepted_avg_node_risk_reduction": -0.000485317390276343,
+    "val_accepted_avg_link_risk_reduction": 0.0009888352577212972,
+    "val_accepted_avg_component_risk_reduction": 0.0005035178674449542,
+    "val_risk_improved_fraction": 0.4009433962264151,
+    "val_risk_worsened_fraction": 0.5141509433962265,
+    "val_accepted_avg_realized_cost": 0.9051070679844264,
+    "val_accepted_avg_disruption": 0.9575471698113207,
+    "val_rollback_rate": 0.42702702702702705,
+    "val_upper_keep_component_exposure": 0.628931255252273,
+    "val_upper_migrate_component_exposure": 0.6379370373648566,
+    "val_upper_keep_peak_horizon_risk": 0.49725243559590093,
+    "val_upper_migrate_peak_horizon_risk": 0.5002610320175016,
+    "val_static_sla_violation_rate": 0.5927376159251727,
+    "val_sla_improvement_over_static": 0.0011713984809189615,
+    "risk_feasible": true,
+    "selected_as_best": true
+  },
+  "static_validation": [
+    {
+      "seed": 1200,
+      "sla_violation_rate": 0.5362318840579711,
+      "availability": 0.9813664596273292,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1201,
+      "sla_violation_rate": 0.5886363636363636,
+      "availability": 1.0,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1202,
+      "sla_violation_rate": 0.5394736842105263,
+      "availability": 1.0,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1203,
+      "sla_violation_rate": 0.6948356807511737,
+      "availability": 0.9812206572769953,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1204,
+      "sla_violation_rate": 0.47649572649572647,
+      "availability": 1.0,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1205,
+      "sla_violation_rate": 0.6163265306122448,
+      "availability": 1.0,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1206,
+      "sla_violation_rate": 0.6216814159292036,
+      "availability": 0.9513274336283186,
+      "admission_rate": 0.6136363636363636
+    },
+    {
+      "seed": 1207,
+      "sla_violation_rate": 0.565947242206235,
+      "availability": 1.0,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1208,
+      "sla_violation_rate": 0.6534883720930232,
+      "availability": 0.986046511627907,
+      "admission_rate": 0.6363636363636364
+    },
+    {
+      "seed": 1209,
+      "sla_violation_rate": 0.6342592592592593,
+      "availability": 0.9652777777777778,
+      "admission_rate": 0.6136363636363636
+    }
+  ]
+}

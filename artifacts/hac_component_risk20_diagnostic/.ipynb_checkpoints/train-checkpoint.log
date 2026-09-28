@@ -1,0 +1,244 @@
+nohup: ignoring input
+validation static reference: sla=0.5927
+episode=000 upper_loss=319.4044 lower_loss=5.0322 sla=0.4965 migrations=8.0 reward=-64.733
+  upper=45 keep=22 immediate=7 delayed=16 pending_exec=16 pending_cancel=0
+  scope: link=3 partial=12 full=8 | lower: ok=8 fail=12 routing_fail=13 rollback=15
+  execution stages: {'accepted': 8, 'no_candidate_host': 12, 'preserved_path_infeasible': 1, 'unchanged': 2}
+  accepted=8 avg_risk_delta=-0.0101 avg_cost=0.819 avg_disruption=1.000
+  component risk delta: node=-0.0101 link=-0.0035 component=-0.0136
+  Upper exposure: keep=0.663 migrate=0.655
+  scope accepted rate: link=0.000 partial=0.333 full=0.500
+  risk quality: improved=0.500 worsened=0.500 unchanged=0.000 mean_negative=-0.0349
+  reward weighted: risk=-2.179 cost=-6.554 disruption=-8.000 sla=-12.000 future_sla=-21.000 failure=-15.000 per_upper=-1.439
+  reward raw: risk=-0.109 cost=-6.554 disruption=-8.000 sla=-12.000 future_sla=-21.000 failure=-15.000
+  reward per execution: risk=-0.095 cost=-0.285 sla=-0.522 failure=-0.652
+episode=001 upper_loss=349.9940 lower_loss=4.2784 sla=0.6592 migrations=11.0 reward=-67.136
+  upper=45 keep=20 immediate=3 delayed=22 pending_exec=22 pending_cancel=0
+  scope: link=3 partial=11 full=11 | lower: ok=10 fail=12 routing_fail=14 rollback=14
+  execution stages: {'accepted': 11, 'fixed_node_infeasible': 1, 'no_candidate_host': 12, 'no_feasible_route': 1}
+  accepted=11 avg_risk_delta=-0.0018 avg_cost=0.725 avg_disruption=0.909
+  component risk delta: node=-0.0018 link=+0.0010 component=-0.0007
+  Upper exposure: keep=0.643 migrate=0.645
+  scope accepted rate: link=0.667 partial=0.364 full=0.455
+  risk quality: improved=0.273 worsened=0.545 unchanged=0.182 mean_negative=-0.0143
+  reward weighted: risk=-0.164 cost=-7.971 disruption=-10.000 sla=-13.000 future_sla=-22.000 failure=-14.000 per_upper=-1.492
+  reward raw: risk=-0.008 cost=-7.971 disruption=-10.000 sla=-13.000 future_sla=-22.000 failure=-14.000
+  reward per execution: risk=-0.007 cost=-0.319 sla=-0.520 failure=-0.560
+episode=002 upper_loss=690.0693 lower_loss=6.4611 sla=0.5563 migrations=16.0 reward=-84.500
+  upper=46 keep=17 immediate=12 delayed=17 pending_exec=17 pending_cancel=0
+  scope: link=2 partial=6 full=21 | lower: ok=16 fail=11 routing_fail=13 rollback=13
+  execution stages: {'accepted': 16, 'no_candidate_host': 11, 'no_feasible_route': 2}
+  accepted=16 avg_risk_delta=-0.0004 avg_cost=0.807 avg_disruption=0.938
+  component risk delta: node=-0.0004 link=-0.0009 component=-0.0013
+  Upper exposure: keep=0.646 migrate=0.640
+  scope accepted rate: link=1.000 partial=0.500 full=0.524
+  risk quality: improved=0.500 worsened=0.375 unchanged=0.125 mean_negative=-0.0068
+  reward weighted: risk=-0.421 cost=-12.912 disruption=-15.000 sla=-23.000 future_sla=-20.167 failure=-13.000 per_upper=-1.837
+  reward raw: risk=-0.021 cost=-12.912 disruption=-15.000 sla=-23.000 future_sla=-20.167 failure=-13.000
+  reward per execution: risk=-0.015 cost=-0.445 sla=-0.793 failure=-0.448
+episode=003 upper_loss=222.6961 lower_loss=19.2803 sla=0.6165 migrations=6.0 reward=-60.576
+  upper=47 keep=27 immediate=7 delayed=13 pending_exec=13 pending_cancel=0
+  scope: link=4 partial=8 full=8 | lower: ok=4 fail=12 routing_fail=12 rollback=14
+  execution stages: {'accepted': 6, 'no_candidate_host': 12, 'unchanged': 2}
+  accepted=6 avg_risk_delta=-0.0110 avg_cost=0.572 avg_disruption=0.833
+  component risk delta: node=-0.0088 link=-0.0674 component=-0.0762
+  Upper exposure: keep=0.723 migrate=0.715
+  scope accepted rate: link=0.500 partial=0.250 full=0.250
+  risk quality: improved=0.333 worsened=0.333 unchanged=0.333 mean_negative=-0.0391
+  reward weighted: risk=-9.142 cost=-3.433 disruption=-5.000 sla=-9.000 future_sla=-20.000 failure=-14.000 per_upper=-1.289
+  reward raw: risk=-0.457 cost=-3.433 disruption=-5.000 sla=-9.000 future_sla=-20.000 failure=-14.000
+  reward per execution: risk=-0.457 cost=-0.172 sla=-0.450 failure=-0.700
+episode=004 upper_loss=387.8771 lower_loss=4.7103 sla=0.5977 migrations=11.0 reward=-63.121
+  upper=42 keep=16 immediate=8 delayed=18 pending_exec=18 pending_cancel=0
+  scope: link=7 partial=11 full=8 | lower: ok=8 fail=11 routing_fail=13 rollback=15
+  execution stages: {'accepted': 11, 'no_candidate_host': 11, 'no_feasible_route': 2, 'unchanged': 2}
+  accepted=11 avg_risk_delta=+0.0016 avg_cost=0.481 avg_disruption=0.773
+  component risk delta: node=+0.0016 link=+0.0015 component=+0.0030
+  Upper exposure: keep=0.639 migrate=0.648
+  scope accepted rate: link=0.714 partial=0.364 full=0.250
+  risk quality: improved=0.364 worsened=0.182 unchanged=0.455 mean_negative=-0.0322
+  reward weighted: risk=+0.668 cost=-5.289 disruption=-8.500 sla=-13.000 future_sla=-22.000 failure=-15.000 per_upper=-1.503
+  reward raw: risk=+0.033 cost=-5.289 disruption=-8.500 sla=-13.000 future_sla=-22.000 failure=-15.000
+  reward per execution: risk=+0.026 cost=-0.203 sla=-0.500 failure=-0.577
+episode=005 upper_loss=499.7649 lower_loss=4.8999 sla=0.7183 migrations=15.0 reward=-73.922
+  upper=46 keep=20 immediate=9 delayed=17 pending_exec=17 pending_cancel=0
+  scope: link=3 partial=12 full=11 | lower: ok=14 fail=9 routing_fail=11 rollback=11
+  execution stages: {'accepted': 15, 'no_candidate_host': 9, 'no_feasible_route': 2}
+  accepted=15 avg_risk_delta=-0.0000 avg_cost=0.585 avg_disruption=0.900
+  component risk delta: node=-0.0000 link=-0.0010 component=-0.0011
+  Upper exposure: keep=0.641 migrate=0.640
+  scope accepted rate: link=1.000 partial=0.750 full=0.273
+  risk quality: improved=0.533 worsened=0.267 unchanged=0.200 mean_negative=-0.0200
+  reward weighted: risk=-0.317 cost=-8.771 disruption=-13.500 sla=-16.000 future_sla=-24.333 failure=-11.000 per_upper=-1.607
+  reward raw: risk=-0.016 cost=-8.771 disruption=-13.500 sla=-16.000 future_sla=-24.333 failure=-11.000
+  reward per execution: risk=-0.012 cost=-0.337 sla=-0.615 failure=-0.423
+episode=006 upper_loss=180.3106 lower_loss=2.4780 sla=0.6529 migrations=9.0 reward=-45.236
+  upper=42 keep=22 immediate=9 delayed=11 pending_exec=11 pending_cancel=0
+  scope: link=1 partial=12 full=7 | lower: ok=10 fail=9 routing_fail=11 rollback=11
+  execution stages: {'accepted': 9, 'no_candidate_host': 9, 'no_feasible_route': 2}
+  accepted=9 avg_risk_delta=+0.0006 avg_cost=0.722 avg_disruption=0.944
+  component risk delta: node=+0.0006 link=-0.0010 component=-0.0004
+  Upper exposure: keep=0.642 migrate=0.645
+  scope accepted rate: link=1.000 partial=0.417 full=0.429
+  risk quality: improved=0.444 worsened=0.444 unchanged=0.111 mean_negative=-0.0074
+  reward weighted: risk=-0.073 cost=-6.496 disruption=-8.500 sla=-3.000 future_sla=-16.167 failure=-11.000 per_upper=-1.077
+  reward raw: risk=-0.004 cost=-6.496 disruption=-8.500 sla=-3.000 future_sla=-16.167 failure=-11.000
+  reward per execution: risk=-0.004 cost=-0.325 sla=-0.150 failure=-0.550
+episode=007 upper_loss=367.1588 lower_loss=7.2247 sla=0.5336 migrations=10.0 reward=-64.975
+  upper=46 keep=25 immediate=4 delayed=17 pending_exec=17 pending_cancel=0
+  scope: link=3 partial=3 full=15 | lower: ok=9 fail=9 routing_fail=11 rollback=11
+  execution stages: {'accepted': 10, 'no_candidate_host': 9, 'no_feasible_route': 1, 'preserved_path_infeasible': 1}
+  accepted=10 avg_risk_delta=-0.0105 avg_cost=0.710 avg_disruption=0.900
+  component risk delta: node=-0.0105 link=-0.0089 component=-0.0194
+  Upper exposure: keep=0.662 migrate=0.645
+  scope accepted rate: link=0.667 partial=1.000 full=0.333
+  risk quality: improved=0.300 worsened=0.500 unchanged=0.200 mean_negative=-0.0239
+  reward weighted: risk=-3.875 cost=-7.100 disruption=-9.000 sla=-13.000 future_sla=-21.000 failure=-11.000 per_upper=-1.412
+  reward raw: risk=-0.194 cost=-7.100 disruption=-9.000 sla=-13.000 future_sla=-21.000 failure=-11.000
+  reward per execution: risk=-0.185 cost=-0.338 sla=-0.619 failure=-0.524
+episode=008 upper_loss=434.8763 lower_loss=3.7917 sla=0.6027 migrations=11.0 reward=-62.004
+  upper=39 keep=21 immediate=5 delayed=13 pending_exec=13 pending_cancel=0
+  scope: link=7 partial=6 full=5 | lower: ok=8 fail=3 routing_fail=6 rollback=7
+  execution stages: {'accepted': 11, 'no_candidate_host': 3, 'no_feasible_route': 3, 'unchanged': 1}
+  accepted=11 avg_risk_delta=+0.0005 avg_cost=0.379 avg_disruption=0.727
+  component risk delta: node=+0.0005 link=+0.0002 component=+0.0007
+  Upper exposure: keep=0.638 migrate=0.634
+  scope accepted rate: link=0.857 partial=0.500 full=0.400
+  risk quality: improved=0.273 worsened=0.182 unchanged=0.545 mean_negative=-0.0021
+  reward weighted: risk=+0.162 cost=-4.166 disruption=-8.000 sla=-15.000 future_sla=-28.000 failure=-7.000 per_upper=-1.590
+  reward raw: risk=+0.008 cost=-4.166 disruption=-8.000 sla=-15.000 future_sla=-28.000 failure=-7.000
+  reward per execution: risk=+0.009 cost=-0.231 sla=-0.833 failure=-0.389
+episode=009 upper_loss=265.1437 lower_loss=7.1150 sla=0.5363 migrations=7.0 reward=-61.926
+  upper=41 keep=15 immediate=11 delayed=15 pending_exec=15 pending_cancel=0
+  scope: link=3 partial=11 full=12 | lower: ok=8 fail=15 routing_fail=18 rollback=19
+  execution stages: {'accepted': 7, 'fixed_node_infeasible': 1, 'no_candidate_host': 15, 'no_feasible_route': 2, 'unchanged': 1}
+  accepted=7 avg_risk_delta=-0.0239 avg_cost=0.744 avg_disruption=0.929
+  component risk delta: node=-0.0239 link=-0.0134 component=-0.0373
+  Upper exposure: keep=0.642 migrate=0.648
+  scope accepted rate: link=0.333 partial=0.182 full=0.333
+  risk quality: improved=0.143 worsened=0.714 unchanged=0.143 mean_negative=-0.0339
+  reward weighted: risk=-5.215 cost=-5.211 disruption=-6.500 sla=-8.000 future_sla=-18.000 failure=-19.000 per_upper=-1.510
+  reward raw: risk=-0.261 cost=-5.211 disruption=-6.500 sla=-8.000 future_sla=-18.000 failure=-19.000
+  reward per execution: risk=-0.201 cost=-0.200 sla=-0.308 failure=-0.731
+validation episode=010 sla=0.5916 component_risk=+0.00050 global_risk=-0.00049 sla_gain=+0.0012 keep=0.068 migrations=21.20 feasible=True
+episode=010 upper_loss=305.0522 lower_loss=2.9026 sla=0.6546 migrations=8.0 reward=-60.642
+  upper=44 keep=17 immediate=8 delayed=19 pending_exec=19 pending_cancel=0
+  scope: link=3 partial=16 full=8 | lower: ok=9 fail=15 routing_fail=18 rollback=19
+  execution stages: {'accepted': 8, 'no_candidate_host': 15, 'no_feasible_route': 2, 'preserved_path_infeasible': 1, 'unchanged': 1}
+  accepted=8 avg_risk_delta=+0.0009 avg_cost=0.668 avg_disruption=0.938
+  component risk delta: node=+0.0009 link=+0.0003 component=+0.0013
+  Upper exposure: keep=0.643 migrate=0.648
+  scope accepted rate: link=0.333 partial=0.312 full=0.250
+  risk quality: improved=0.375 worsened=0.500 unchanged=0.125 mean_negative=-0.0106
+  reward weighted: risk=+0.202 cost=-5.344 disruption=-7.500 sla=-11.000 future_sla=-18.000 failure=-19.000 per_upper=-1.378
+  reward raw: risk=+0.010 cost=-5.344 disruption=-7.500 sla=-11.000 future_sla=-18.000 failure=-19.000
+  reward per execution: risk=+0.007 cost=-0.198 sla=-0.407 failure=-0.704
+episode=011 upper_loss=126.6997 lower_loss=2.9571 sla=0.5050 migrations=5.0 reward=-39.993
+  upper=39 keep=24 immediate=5 delayed=10 pending_exec=10 pending_cancel=0
+  scope: link=3 partial=5 full=7 | lower: ok=5 fail=7 routing_fail=9 rollback=10
+  execution stages: {'accepted': 5, 'no_candidate_host': 7, 'no_feasible_route': 2, 'unchanged': 1}
+  accepted=5 avg_risk_delta=+0.0025 avg_cost=0.649 avg_disruption=0.800
+  component risk delta: node=+0.0025 link=-0.0000 component=+0.0025
+  Upper exposure: keep=0.642 migrate=0.638
+  scope accepted rate: link=0.667 partial=0.200 full=0.286
+  risk quality: improved=0.400 worsened=0.200 unchanged=0.400 mean_negative=-0.0031
+  reward weighted: risk=+0.252 cost=-3.244 disruption=-4.000 sla=-8.000 future_sla=-15.000 failure=-10.000 per_upper=-1.025
+  reward raw: risk=+0.013 cost=-3.244 disruption=-4.000 sla=-8.000 future_sla=-15.000 failure=-10.000
+  reward per execution: risk=+0.017 cost=-0.216 sla=-0.533 failure=-0.667
+episode=012 upper_loss=281.5665 lower_loss=2.0748 sla=0.6368 migrations=4.0 reward=-47.959
+  upper=42 keep=22 immediate=6 delayed=14 pending_exec=14 pending_cancel=0
+  scope: link=2 partial=6 full=12 | lower: ok=4 fail=14 routing_fail=16 rollback=16
+  execution stages: {'accepted': 4, 'no_candidate_host': 14, 'no_feasible_route': 2}
+  accepted=4 avg_risk_delta=+0.0016 avg_cost=0.525 avg_disruption=0.750
+  component risk delta: node=+0.0016 link=+0.0002 component=+0.0018
+  Upper exposure: keep=0.635 migrate=0.642
+  scope accepted rate: link=1.000 partial=0.000 full=0.167
+  risk quality: improved=0.500 worsened=0.000 unchanged=0.500 mean_negative=+0.0000
+  reward weighted: risk=+0.143 cost=-2.102 disruption=-3.000 sla=-4.000 future_sla=-23.000 failure=-16.000 per_upper=-1.142
+  reward raw: risk=+0.007 cost=-2.102 disruption=-3.000 sla=-4.000 future_sla=-23.000 failure=-16.000
+  reward per execution: risk=+0.007 cost=-0.105 sla=-0.200 failure=-0.800
+episode=013 upper_loss=328.1948 lower_loss=4.6347 sla=0.6189 migrations=9.0 reward=-64.885
+  upper=49 keep=22 immediate=13 delayed=14 pending_exec=14 pending_cancel=0
+  scope: link=5 partial=10 full=12 | lower: ok=7 fail=15 routing_fail=17 rollback=18
+  execution stages: {'accepted': 9, 'no_candidate_host': 15, 'no_feasible_route': 1, 'preserved_path_infeasible': 1, 'unchanged': 1}
+  accepted=9 avg_risk_delta=-0.0027 avg_cost=0.496 avg_disruption=0.833
+  component risk delta: node=-0.0027 link=-0.0079 component=-0.0106
+  Upper exposure: keep=0.653 migrate=0.643
+  scope accepted rate: link=0.600 partial=0.500 full=0.083
+  risk quality: improved=0.333 worsened=0.333 unchanged=0.333 mean_negative=-0.0121
+  reward weighted: risk=-1.917 cost=-4.468 disruption=-7.500 sla=-13.000 future_sla=-20.000 failure=-18.000 per_upper=-1.324
+  reward raw: risk=-0.096 cost=-4.468 disruption=-7.500 sla=-13.000 future_sla=-20.000 failure=-18.000
+  reward per execution: risk=-0.071 cost=-0.165 sla=-0.481 failure=-0.667
+episode=014 upper_loss=259.4910 lower_loss=2.9856 sla=0.6712 migrations=10.0 reward=-51.667
+  upper=38 keep=17 immediate=10 delayed=11 pending_exec=11 pending_cancel=0
+  scope: link=9 partial=7 full=5 | lower: ok=6 fail=6 routing_fail=8 rollback=11
+  execution stages: {'accepted': 10, 'no_candidate_host': 6, 'no_feasible_route': 2, 'unchanged': 3}
+  accepted=10 avg_risk_delta=-0.0003 avg_cost=0.340 avg_disruption=0.700
+  component risk delta: node=-0.0003 link=-0.0010 component=-0.0013
+  Upper exposure: keep=0.640 migrate=0.638
+  scope accepted rate: link=0.667 partial=0.429 full=0.200
+  risk quality: improved=0.200 worsened=0.200 unchanged=0.600 mean_negative=-0.0082
+  reward weighted: risk=-0.269 cost=-3.398 disruption=-7.000 sla=-11.000 future_sla=-19.000 failure=-11.000 per_upper=-1.360
+  reward raw: risk=-0.013 cost=-3.398 disruption=-7.000 sla=-11.000 future_sla=-19.000 failure=-11.000
+  reward per execution: risk=-0.013 cost=-0.162 sla=-0.524 failure=-0.524
+episode=015 upper_loss=201.7931 lower_loss=3.9483 sla=0.6071 migrations=9.0 reward=-48.365
+  upper=45 keep=23 immediate=11 delayed=11 pending_exec=11 pending_cancel=0
+  scope: link=5 partial=9 full=8 | lower: ok=5 fail=12 routing_fail=13 rollback=13
+  execution stages: {'accepted': 9, 'no_candidate_host': 12, 'no_feasible_route': 1}
+  accepted=9 avg_risk_delta=+0.0018 avg_cost=0.482 avg_disruption=0.778
+  component risk delta: node=+0.0018 link=-0.0019 component=-0.0001
+  Upper exposure: keep=0.659 migrate=0.650
+  scope accepted rate: link=0.800 partial=0.444 full=0.125
+  risk quality: improved=0.444 worsened=0.111 unchanged=0.444 mean_negative=-0.0301
+  reward weighted: risk=-0.025 cost=-4.340 disruption=-7.000 sla=-7.000 future_sla=-17.000 failure=-13.000 per_upper=-1.075
+  reward raw: risk=-0.001 cost=-4.340 disruption=-7.000 sla=-7.000 future_sla=-17.000 failure=-13.000
+  reward per execution: risk=-0.001 cost=-0.197 sla=-0.318 failure=-0.591
+episode=016 upper_loss=269.5877 lower_loss=3.0683 sla=0.5823 migrations=10.0 reward=-51.775
+  upper=47 keep=25 immediate=8 delayed=14 pending_exec=14 pending_cancel=0
+  scope: link=5 partial=11 full=6 | lower: ok=6 fail=11 routing_fail=12 rollback=12
+  execution stages: {'accepted': 10, 'no_candidate_host': 11, 'no_feasible_route': 1}
+  accepted=10 avg_risk_delta=+0.0009 avg_cost=0.425 avg_disruption=0.750
+  component risk delta: node=+0.0009 link=+0.0006 component=+0.0015
+  Upper exposure: keep=0.638 migrate=0.645
+  scope accepted rate: link=1.000 partial=0.273 full=0.333
+  risk quality: improved=0.400 worsened=0.100 unchanged=0.500 mean_negative=-0.0171
+  reward weighted: risk=+0.305 cost=-4.247 disruption=-7.500 sla=-7.000 future_sla=-21.333 failure=-12.000 per_upper=-1.102
+  reward raw: risk=+0.015 cost=-4.247 disruption=-7.500 sla=-7.000 future_sla=-21.333 failure=-12.000
+  reward per execution: risk=+0.014 cost=-0.193 sla=-0.318 failure=-0.545
+episode=017 upper_loss=432.4094 lower_loss=3.4970 sla=0.7130 migrations=12.0 reward=-70.877
+  upper=42 keep=17 immediate=6 delayed=19 pending_exec=19 pending_cancel=0
+  scope: link=6 partial=10 full=9 | lower: ok=12 fail=7 routing_fail=12 rollback=13
+  execution stages: {'accepted': 12, 'fixed_node_infeasible': 2, 'no_candidate_host': 7, 'no_feasible_route': 3, 'unchanged': 1}
+  accepted=12 avg_risk_delta=-0.0028 avg_cost=0.617 avg_disruption=0.875
+  component risk delta: node=-0.0028 link=-0.0013 component=-0.0041
+  Upper exposure: keep=0.643 migrate=0.638
+  scope accepted rate: link=0.500 partial=0.600 full=0.333
+  risk quality: improved=0.417 worsened=0.333 unchanged=0.250 mean_negative=-0.0127
+  reward weighted: risk=-0.977 cost=-7.400 disruption=-10.500 sla=-17.000 future_sla=-22.000 failure=-13.000 per_upper=-1.688
+  reward raw: risk=-0.049 cost=-7.400 disruption=-10.500 sla=-17.000 future_sla=-22.000 failure=-13.000
+  reward per execution: risk=-0.039 cost=-0.296 sla=-0.680 failure=-0.520
+episode=018 upper_loss=274.6191 lower_loss=5.7424 sla=0.7120 migrations=4.0 reward=-55.676
+  upper=38 keep=23 immediate=5 delayed=10 pending_exec=10 pending_cancel=0
+  scope: link=3 partial=4 full=8 | lower: ok=4 fail=8 routing_fail=11 rollback=11
+  execution stages: {'accepted': 4, 'fixed_node_infeasible': 2, 'no_candidate_host': 8, 'preserved_path_infeasible': 1}
+  accepted=4 avg_risk_delta=-0.0219 avg_cost=0.740 avg_disruption=1.000
+  component risk delta: node=-0.0219 link=-0.0182 component=-0.0402
+  Upper exposure: keep=0.644 migrate=0.642
+  scope accepted rate: link=0.000 partial=0.750 full=0.125
+  risk quality: improved=0.000 worsened=1.000 unchanged=0.000 mean_negative=-0.0219
+  reward weighted: risk=-3.214 cost=-2.962 disruption=-4.000 sla=-12.000 future_sla=-22.500 failure=-11.000 per_upper=-1.465
+  reward raw: risk=-0.161 cost=-2.962 disruption=-4.000 sla=-12.000 future_sla=-22.500 failure=-11.000
+  reward per execution: risk=-0.214 cost=-0.197 sla=-0.800 failure=-0.733
+episode=019 upper_loss=292.6699 lower_loss=5.7323 sla=0.5683 migrations=7.0 reward=-60.533
+  upper=41 keep=20 immediate=10 delayed=11 pending_exec=11 pending_cancel=0
+  scope: link=4 partial=8 full=9 | lower: ok=8 fail=9 routing_fail=12 rollback=14
+  execution stages: {'accepted': 7, 'no_candidate_host': 9, 'no_feasible_route': 3, 'unchanged': 2}
+  accepted=7 avg_risk_delta=-0.0097 avg_cost=0.679 avg_disruption=0.857
+  component risk delta: node=-0.0097 link=-0.0078 component=-0.0175
+  Upper exposure: keep=0.656 migrate=0.634
+  scope accepted rate: link=0.500 partial=0.125 full=0.444
+  risk quality: improved=0.429 worsened=0.286 unchanged=0.286 mean_negative=-0.0367
+  reward weighted: risk=-2.450 cost=-4.750 disruption=-6.000 sla=-16.000 future_sla=-17.333 failure=-14.000 per_upper=-1.476
+  reward raw: risk=-0.122 cost=-4.750 disruption=-6.000 sla=-16.000 future_sla=-17.333 failure=-14.000
+  reward per execution: risk=-0.117 cost=-0.226 sla=-0.762 failure=-0.667
+validation episode=020 sla=0.5955 component_risk=+0.00237 global_risk=+0.00109 sla_gain=-0.0028 keep=0.414 migrations=10.70 feasible=False

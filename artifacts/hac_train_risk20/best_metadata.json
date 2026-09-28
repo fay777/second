@@ -1,0 +1,39 @@
+{
+  "selection_rule": "accepted_migrations > 0 and accepted_avg_risk_reduction >= 0; then minimize SLA, total cost, total disruption, migrations",
+  "best_checkpoint_found": true,
+  "best_validation": {
+    "episode": 60,
+    "validation_seeds": [
+      1200,
+      1201,
+      1202,
+      1203,
+      1204,
+      1205,
+      1206,
+      1207,
+      1208,
+      1209
+    ],
+    "val_sla_violation_rate": 0.5927376159251727,
+    "val_availability": 0.9865238839938328,
+    "val_admission_rate": 0.6318181818181818,
+    "val_migrations": 0.2,
+    "val_total_realized_cost": 0.008888888888888889,
+    "val_total_disruption": 0.1,
+    "val_execution_events": 2,
+    "val_accepted_migrations": 2,
+    "val_execution_success_rate": 1.0,
+    "val_keep_rate": 0.9958932238193019,
+    "val_accepted_avg_risk_reduction": 0.0,
+    "val_accepted_avg_node_risk_reduction": 0.0,
+    "val_accepted_avg_link_risk_reduction": 0.00015204004717596364,
+    "val_risk_improved_fraction": 0.0,
+    "val_risk_worsened_fraction": 0.0,
+    "val_accepted_avg_realized_cost": 0.044444444444444446,
+    "val_accepted_avg_disruption": 0.5,
+    "val_rollback_rate": 0.0,
+    "risk_feasible": true,
+    "selected_as_best": true
+  }
+}
