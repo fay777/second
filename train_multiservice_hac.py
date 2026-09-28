@@ -124,6 +124,8 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
             "return_std": 0.0,
             "advantage_raw_std": 0.0,
             "grad_norm": 0.0,
+            "actor_grad_norm": 0.0,
+            "critic_grad_norm": 0.0,
             "trajectories": 0.0,
             "records": 0.0,
         }
@@ -147,7 +149,10 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
     loss = actor_loss + 0.5 * critic_loss
     optimizer.zero_grad()
     loss.backward()
-    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    # Actor and critic are separate MLPs. Clipping all model parameters together
+    # lets large raw-return critic gradients suppress the policy-gradient update.
+    actor_grad_norm = torch.nn.utils.clip_grad_norm_(model.actor.parameters(), 1.0)
+    critic_grad_norm = torch.nn.utils.clip_grad_norm_(model.critic.parameters(), 1.0)
     optimizer.step()
     return {
         "loss": float(loss.item()),
@@ -156,7 +161,9 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
         "return_mean": float(returns.mean().item()),
         "return_std": float(returns.std(unbiased=False).item()),
         "advantage_raw_std": float(advantage_raw_std.item()),
-        "grad_norm": float(grad_norm.item()),
+        "grad_norm": float(torch.hypot(actor_grad_norm, critic_grad_norm).item()),
+        "actor_grad_norm": float(actor_grad_norm.item()),
+        "critic_grad_norm": float(critic_grad_norm.item()),
         "trajectories": float(len(trajectories)),
         "records": float(len(records)),
     }
@@ -697,6 +704,8 @@ def main():
                 "return_std",
                 "advantage_raw_std",
                 "grad_norm",
+                "actor_grad_norm",
+                "critic_grad_norm",
                 "trajectories",
                 "records",
             ):
@@ -741,13 +750,15 @@ def main():
                 f"  optimizer upper: actor={upper_update['actor_loss']:+.4f} "
                 f"critic={upper_update['critic_loss']:.4f} return={upper_update['return_mean']:+.3f} "
                 f"+/-{upper_update['return_std']:.3f} advantage_std={upper_update['advantage_raw_std']:.3f} "
-                f"grad_norm={upper_update['grad_norm']:.3f} records={int(upper_update['records'])}"
+                f"actor_grad={upper_update['actor_grad_norm']:.3f} "
+                f"critic_grad={upper_update['critic_grad_norm']:.3f} records={int(upper_update['records'])}"
             )
             print(
                 f"  optimizer lower: actor={lower_update['actor_loss']:+.4f} "
                 f"critic={lower_update['critic_loss']:.4f} return={lower_update['return_mean']:+.3f} "
                 f"+/-{lower_update['return_std']:.3f} advantage_std={lower_update['advantage_raw_std']:.3f} "
-                f"grad_norm={lower_update['grad_norm']:.3f} records={int(lower_update['records'])}"
+                f"actor_grad={lower_update['actor_grad_norm']:.3f} "
+                f"critic_grad={lower_update['critic_grad_norm']:.3f} records={int(lower_update['records'])}"
             )
         if args.diagnostic:
             print(

@@ -306,7 +306,9 @@ update_batch_episodes = 5
 validation_interval = 10
 ```
 
-即进行 10 次优化更新、5 次 held-out validation。训练 history 在 batch 结束行记录 actor loss、critic loss、raw-return mean/std、raw-advantage std 与裁剪前 gradient norm；非 batch 结束行的这些字段为 `null`。这一阶段不改变 reward、学习率、熵正则、Selector、ST-GCN 或路由。
+即进行 10 次优化更新、5 次 held-out validation。训练 history 在 batch 结束行记录 actor loss、critic loss、raw-return mean/std、raw-advantage std 与 actor/critic 各自的裁剪前 gradient norm；非 batch 结束行的这些字段为 `null`。
+
+Upper 和 Lower 的 actor/critic 均为独立 MLP，不共享 trunk。由于 critic 对 raw discounted return 的 MSE 可远大于 policy loss，不能对整个模型执行一次全局梯度裁剪，否则 critic 的大梯度会连带缩小 actor 梯度。Trainer 因此分别以 `1.0` 裁剪 actor 与 critic 参数组；这不改变 reward、学习率、熵正则、Selector、ST-GCN 或路由。
 
 ## 常用命令
 
