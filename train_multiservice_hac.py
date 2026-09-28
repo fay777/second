@@ -112,11 +112,21 @@ def upper_action_distributions(model, state, planning_mask, device):
     return decision_dist, Categorical(logits=migration_logits), decision_logits
 
 
-def update_policy(model, optimizer, trajectories, gamma: float) -> float:
+def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, float]:
     """Update from independent trajectories using raw critic targets."""
     trajectories = [trajectory for trajectory in trajectories if trajectory]
     if not trajectories:
-        return 0.0
+        return {
+            "loss": 0.0,
+            "actor_loss": 0.0,
+            "critic_loss": 0.0,
+            "return_mean": 0.0,
+            "return_std": 0.0,
+            "advantage_raw_std": 0.0,
+            "grad_norm": 0.0,
+            "trajectories": 0.0,
+            "records": 0.0,
+        }
     records, return_values = [], []
     for trajectory in trajectories:
         returns, value = [], 0.0
@@ -129,6 +139,7 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> float:
     values = torch.stack([record["value"] for record in records])
     log_probs = torch.stack([record["log_prob"] for record in records])
     advantages = returns - values.detach()
+    advantage_raw_std = advantages.std(unbiased=False)
     if len(advantages) > 1:
         advantages = (advantages - advantages.mean()) / advantages.std(unbiased=False).clamp_min(1e-6)
     actor_loss = -(log_probs * advantages).mean()
@@ -136,9 +147,19 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> float:
     loss = actor_loss + 0.5 * critic_loss
     optimizer.zero_grad()
     loss.backward()
-    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     optimizer.step()
-    return float(loss.item())
+    return {
+        "loss": float(loss.item()),
+        "actor_loss": float(actor_loss.item()),
+        "critic_loss": float(critic_loss.item()),
+        "return_mean": float(returns.mean().item()),
+        "return_std": float(returns.std(unbiased=False).item()),
+        "advantage_raw_std": float(advantage_raw_std.item()),
+        "grad_norm": float(grad_norm.item()),
+        "trajectories": float(len(trajectories)),
+        "records": float(len(records)),
+    }
 
 
 def weighted_reward(raw_components: Dict[str, float], weights: RewardWeights) -> Tuple[float, Dict[str, float]]:
@@ -466,6 +487,12 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument(
+        "--update-batch-episodes",
+        type=int,
+        default=1,
+        help="Collect this many independent episode trajectories before one optimizer update.",
+    )
     parser.add_argument("--reward-risk-weight", type=float, default=2.0)
     parser.add_argument("--reward-cost-weight", type=float, default=1.0)
     parser.add_argument("--reward-disruption-weight", type=float, default=1.0)
@@ -500,6 +527,13 @@ def main():
         raise ValueError("episodes and steps must be positive.")
     if args.validation_interval < 1:
         raise ValueError("validation_interval must be positive.")
+    if args.update_batch_episodes < 1:
+        raise ValueError("update_batch_episodes must be positive.")
+    if args.validation_seeds and args.validation_interval % args.update_batch_episodes:
+        raise ValueError(
+            "validation_interval must be divisible by update_batch_episodes so validation "
+            "always evaluates an updated policy."
+        )
     if not args.stgcn_checkpoint.is_file():
         raise FileNotFoundError(f"Missing ST-GCN checkpoint: {args.stgcn_checkpoint}")
     training_seeds = set(range(args.seed, args.seed + args.episodes))
@@ -539,6 +573,9 @@ def main():
     else:
         static_validation_sla = None
 
+    upper_batch_trajectories = []
+    lower_batch_trajectories = []
+    batch_start_episode = 0
     for episode in range(args.episodes):
         upper.train()
         lower.train()
@@ -578,8 +615,19 @@ def main():
             lower_records,
             reward_weights,
         )
-        upper_loss = update_policy(upper, upper_opt, [upper_records], args.gamma)
-        lower_loss = update_policy(lower, lower_opt, lower_trajectories, args.gamma)
+        upper_batch_trajectories.append(upper_records)
+        lower_batch_trajectories.extend(lower_trajectories)
+        batch_complete = (
+            len(upper_batch_trajectories) == args.update_batch_episodes
+            or episode + 1 == args.episodes
+        )
+        upper_update = None
+        lower_update = None
+        if batch_complete:
+            upper_update = update_policy(upper, upper_opt, upper_batch_trajectories, args.gamma)
+            lower_update = update_policy(lower, lower_opt, lower_batch_trajectories, args.gamma)
+            upper_batch_trajectories = []
+            lower_batch_trajectories = []
         execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
         upper_action_count = max(1, len(upper_records))
         execution_events = [event for event in result["hac_events"] if event.execution is not None]
@@ -597,8 +645,11 @@ def main():
         row = {
             "episode": episode,
             "seed": seed,
-            "upper_loss": upper_loss,
-            "lower_loss": lower_loss,
+            "optimizer_updated": batch_complete,
+            "update_batch_start_episode": batch_start_episode,
+            "update_batch_end_episode": episode,
+            "upper_loss": None if upper_update is None else upper_update["loss"],
+            "lower_loss": None if lower_update is None else lower_update["loss"],
             "upper_actions": len(upper_records),
             "lower_actions": len(lower_records),
             "lower_executions": len(lower_trajectories),
@@ -638,6 +689,18 @@ def main():
         for name in REWARD_COMPONENTS:
             row[f"reward_{name}_per_execution"] = execution_weighted_totals[name] / execution_event_count
             row[f"reward_raw_{name}_per_execution"] = execution_raw_totals[name] / execution_event_count
+        for prefix, update in (("upper", upper_update), ("lower", lower_update)):
+            for name in (
+                "actor_loss",
+                "critic_loss",
+                "return_mean",
+                "return_std",
+                "advantage_raw_std",
+                "grad_norm",
+                "trajectories",
+                "records",
+            ):
+                row[f"{prefix}_{name}"] = None if update is None else update[name]
         history.append(row)
         for event in execution_events:
             execution_audit.append({
@@ -663,10 +726,29 @@ def main():
                 "node_risk_reduction": event.execution.outcome.node_risk_reduction,
                 "link_risk_reduction": event.execution.outcome.link_risk_reduction,
             })
+        update_status = "pending"
+        if batch_complete:
+            update_status = (
+                f"batch={batch_start_episode:03d}-{episode:03d} "
+                f"upper_loss={upper_update['loss']:.4f} lower_loss={lower_update['loss']:.4f}"
+            )
         print(
-            f"episode={episode:03d} upper_loss={upper_loss:.4f} lower_loss={lower_loss:.4f} "
+            f"episode={episode:03d} update={update_status} "
             f"sla={row['sla_violation_rate']:.4f} migrations={row['migrations']} reward={row['reward_total']:.3f}"
         )
+        if batch_complete:
+            print(
+                f"  optimizer upper: actor={upper_update['actor_loss']:+.4f} "
+                f"critic={upper_update['critic_loss']:.4f} return={upper_update['return_mean']:+.3f} "
+                f"+/-{upper_update['return_std']:.3f} advantage_std={upper_update['advantage_raw_std']:.3f} "
+                f"grad_norm={upper_update['grad_norm']:.3f} records={int(upper_update['records'])}"
+            )
+            print(
+                f"  optimizer lower: actor={lower_update['actor_loss']:+.4f} "
+                f"critic={lower_update['critic_loss']:.4f} return={lower_update['return_mean']:+.3f} "
+                f"+/-{lower_update['return_std']:.3f} advantage_std={lower_update['advantage_raw_std']:.3f} "
+                f"grad_norm={lower_update['grad_norm']:.3f} records={int(lower_update['records'])}"
+            )
         if args.diagnostic:
             print(
                 f"  upper={row['upper_actions']} keep={row['upper_keep_count']} "
@@ -718,7 +800,13 @@ def main():
                 f"cost={row['reward_cost_per_execution']:+.3f} sla={row['reward_sla_per_execution']:+.3f} "
                 f"failure={row['reward_failure_per_execution']:+.3f}"
             )
-        if args.validation_seeds and (episode + 1) % args.validation_interval == 0:
+        if batch_complete:
+            batch_start_episode = episode + 1
+        if (
+            args.validation_seeds
+            and batch_complete
+            and (episode + 1) % args.validation_interval == 0
+        ):
             evaluations = [
                 evaluate_argmax_policy(upper, lower, seed, args.steps, args.stgcn_checkpoint, device)
                 for seed in args.validation_seeds
@@ -778,6 +866,7 @@ def main():
         "reward_weights": asdict(reward_weights),
         "critic_target": "raw_discounted_return",
         "actor_advantage": "normalized_return_minus_detached_value",
+        "update_batch_episodes": args.update_batch_episodes,
         "calibration_evaluation_policy": "argmax",
         "calibration_evaluation_seeds": args.calibration_eval_seeds,
         "future_sla_horizon": FUTURE_SLA_HORIZON,

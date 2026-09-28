@@ -254,14 +254,14 @@ Argmax calibration evaluation 还记录二元决策的 `mean_keep_probability` �
 
 ## Reward 冻结与周期验证
 
-在固定 calibration seeds `900, 901, 902` 的 deterministic argmax rollout 上，`risk_weight=20` 相对 `risk_weight=2` 取得稳定的正平均复合风险改善，同时未观察到 SLA 恶化。因此后续训练固定：
+在早期固定 calibration seeds `900, 901, 902` 的 deterministic argmax rollout 上，`risk_weight=20` 相对 `risk_weight=2` 表现出更强的正复合风险改善信号。随后，component-risk 与 future-SLA 的归因语义更新，因此不能将旧结论表述为最终最优；目前仅保留 `risk_weight=20` 作为唯一候选，不继续扫描 `40` 或更大的权重。
 
 ```text
 risk=20
 cost=disruption=sla=future_sla=failure=1
 ```
 
-该结论只用于超参数冻结，不作为统计显著性结论。calibration seeds 自此封存，不参与 checkpoint 选择或最终测试。
+该结论不构成统计显著性结论。calibration seeds 自此封存，不参与 checkpoint 选择或最终测试。
 
 长训练采用独立的 train / validation / test seed split。Trainer 支持每隔 `validation_interval` 个训练 episode，在 held-out validation seeds 上执行 deterministic argmax evaluation，并写出：
 
@@ -288,19 +288,40 @@ Trainer 会在 validation 开始前按相同 workload seeds 计算一次 Static 
 
 建议的正式开发 split：训练 seed 从 `100` 起，validation 使用 `1200..1209`，最终 untouched test 使用 `2000..2019`。三者不得重叠。
 
+## Batch Rollout 稳定性诊断
+
+当使用单 episode 更新时，连续 validation 曾出现“第 10 回合满足 SLA/风险约束、而第 20 回合 SLA 回退”的策略漂移。为检验是否由高方差 on-policy 更新造成，Trainer 增加：
+
+```text
+--update-batch-episodes N
+```
+
+每个 episode 仍是一条独立 trajectory：discounted return 在各自 episode 内反向计算，不跨 episode 传播。仅在收集 `N` 条 trajectory 后，对合并的 records 统一标准化 advantage 并执行一次 Upper/Lower optimizer update。validation interval 必须能被 `N` 整除，以保证评估的是刚更新的策略。
+
+第一轮稳定性诊断固定为：
+
+```text
+episodes = 50
+update_batch_episodes = 5
+validation_interval = 10
+```
+
+即进行 10 次优化更新、5 次 held-out validation。训练 history 在 batch 结束行记录 actor loss、critic loss、raw-return mean/std、raw-advantage std 与裁剪前 gradient norm；非 batch 结束行的这些字段为 `null`。这一阶段不改变 reward、学习率、熵正则、Selector、ST-GCN 或路由。
+
 ## 常用命令
 
 ```bash
 python -B train_multiservice_hac.py \
   --stgcn-checkpoint artifacts/stgcn_h3/stgcn_best.pt \
-  --episodes 200 \
+  --episodes 50 \
   --steps 100 \
   --seed 100 \
   --reward-risk-weight 20 \
+  --update-batch-episodes 5 \
   --calibration-eval-seeds \
   --validation-seeds 1200 1201 1202 1203 1204 1205 1206 1207 1208 1209 \
   --validation-interval 10 \
-  --output artifacts/hac_train_risk20
+  --output artifacts/hac_risk20_batch5_stability
 ```
 
 ```bash
