@@ -322,6 +322,8 @@ explained variance = 1 - Var(return - value) / Var(return)
 
 同时记录 Upper 二元 gate 的 KEEP/MIGRATE 数量、即时 reward 平均值和 discounted-return 平均值。若 EV 持续接近或低于零，且 value 未跟随 return 的均值与尺度，再单独测试固定比例 return scaling；若 KEEP 的实际 return 系统性更高，则优先检查 reward/跨服务 credit assignment，而不是误判为 critic 数值问题。
 
+固定比例 scaling 由 `--critic-return-scale c` 控制。critic target 使用 `cG`，actor 使用 `cG-V(s)` 后仍统一标准化 advantage；因此不会改变 risk、cost、SLA 等 reward 分量的相对偏好。诊断日志会将 value、RMSE 和 return 统一反变换到原始 reward 单位。第一轮仅测试 `c=0.05`，不同时修改学习率、reward 或 credit assignment。
+
 ## 常用命令
 
 ```bash

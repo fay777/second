@@ -112,8 +112,12 @@ def upper_action_distributions(model, state, planning_mask, device):
     return decision_dist, Categorical(logits=migration_logits), decision_logits
 
 
-def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, float]:
-    """Update from independent trajectories using raw critic targets."""
+def update_policy(
+    model, optimizer, trajectories, gamma: float, critic_return_scale: float = 1.0
+) -> Dict[str, float]:
+    """Update independent trajectories with an optional fixed critic-target scale."""
+    if critic_return_scale <= 0.0:
+        raise ValueError("critic_return_scale must be positive.")
     trajectories = [trajectory for trajectory in trajectories if trajectory]
     if not trajectories:
         return {
@@ -148,22 +152,27 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
             returns.append(value)
         records.extend(trajectory)
         return_values.extend(reversed(returns))
-    returns = torch.tensor(return_values, dtype=torch.float32, device=records[0]["value"].device)
+    raw_returns = torch.tensor(
+        return_values, dtype=torch.float32, device=records[0]["value"].device
+    )
+    returns = raw_returns * critic_return_scale
     values = torch.stack([record["value"] for record in records])
     log_probs = torch.stack([record["log_prob"] for record in records])
     detached_values = values.detach()
     advantages = returns - detached_values
     advantage_raw_std = advantages.std(unbiased=False)
-    return_variance = returns.var(unbiased=False)
+    raw_values = detached_values / critic_return_scale
+    raw_advantages = raw_returns - raw_values
+    return_variance = raw_returns.var(unbiased=False)
     explained_variance = 0.0
     value_return_corr = 0.0
     if return_variance.item() > 1e-6:
         explained_variance = float(
-            (1.0 - advantages.var(unbiased=False) / return_variance).item()
+            (1.0 - raw_advantages.var(unbiased=False) / return_variance).item()
         )
     if detached_values.std(unbiased=False).item() > 1e-6 and return_variance.item() > 1e-6:
         value_return_corr = float(
-            torch.corrcoef(torch.stack((detached_values, returns)))[0, 1].item()
+            torch.corrcoef(torch.stack((raw_values, raw_returns)))[0, 1].item()
         )
     if len(advantages) > 1:
         advantages = (advantages - advantages.mean()) / advantages.std(unbiased=False).clamp_min(1e-6)
@@ -190,17 +199,17 @@ def update_policy(model, optimizer, trajectories, gamma: float) -> Dict[str, flo
             float(rewards[indices].mean().item()) if indices else 0.0
         )
         gate_metrics[f"{prefix}_return_mean"] = (
-            float(returns[indices].mean().item()) if indices else 0.0
+            float(raw_returns[indices].mean().item()) if indices else 0.0
         )
     return {
         "loss": float(loss.item()),
         "actor_loss": float(actor_loss.item()),
         "critic_loss": float(critic_loss.item()),
-        "return_mean": float(returns.mean().item()),
-        "return_std": float(returns.std(unbiased=False).item()),
-        "value_mean": float(detached_values.mean().item()),
-        "value_std": float(detached_values.std(unbiased=False).item()),
-        "critic_rmse": float(torch.sqrt(critic_loss.detach()).item()),
+        "return_mean": float(raw_returns.mean().item()),
+        "return_std": float(raw_returns.std(unbiased=False).item()),
+        "value_mean": float(raw_values.mean().item()),
+        "value_std": float(raw_values.std(unbiased=False).item()),
+        "critic_rmse": float(torch.sqrt(critic_loss.detach()).item() / critic_return_scale),
         "value_return_corr": value_return_corr,
         "explained_variance": explained_variance,
         "advantage_raw_std": float(advantage_raw_std.item()),
@@ -539,6 +548,12 @@ def main():
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument(
+        "--critic-return-scale",
+        type=float,
+        default=1.0,
+        help="Fixed scale for critic targets and advantages; reward reporting remains unscaled.",
+    )
+    parser.add_argument(
         "--update-batch-episodes",
         type=int,
         default=1,
@@ -580,6 +595,8 @@ def main():
         raise ValueError("validation_interval must be positive.")
     if args.update_batch_episodes < 1:
         raise ValueError("update_batch_episodes must be positive.")
+    if args.critic_return_scale <= 0.0:
+        raise ValueError("critic_return_scale must be positive.")
     if args.validation_seeds and args.validation_interval % args.update_batch_episodes:
         raise ValueError(
             "validation_interval must be divisible by update_batch_episodes so validation "
@@ -680,8 +697,12 @@ def main():
         upper_update = None
         lower_update = None
         if batch_complete:
-            upper_update = update_policy(upper, upper_opt, upper_batch_trajectories, args.gamma)
-            lower_update = update_policy(lower, lower_opt, lower_batch_trajectories, args.gamma)
+            upper_update = update_policy(
+                upper, upper_opt, upper_batch_trajectories, args.gamma, args.critic_return_scale
+            )
+            lower_update = update_policy(
+                lower, lower_opt, lower_batch_trajectories, args.gamma, args.critic_return_scale
+            )
             upper_batch_trajectories = []
             lower_batch_trajectories = []
         execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
@@ -951,7 +972,8 @@ def main():
         "lower_candidate_dim": LOWER_CANDIDATE_DIM,
         "reward_components": list(REWARD_COMPONENTS),
         "reward_weights": asdict(reward_weights),
-        "critic_target": "raw_discounted_return",
+        "critic_target": "fixed_scale_times_raw_discounted_return",
+        "critic_return_scale": args.critic_return_scale,
         "actor_advantage": "normalized_return_minus_detached_value",
         "update_batch_episodes": args.update_batch_episodes,
         "calibration_evaluation_policy": "argmax",
