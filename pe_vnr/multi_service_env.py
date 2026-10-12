@@ -133,6 +133,7 @@ class MultiServiceDynamicEnv:
             "pending_created": 0,
             "pending_executed": 0,
             "pending_cancelled": 0,
+            "pending_stale_cancelled": 0,
             "lower_decisions": 0,
             "lower_success": 0,
             "lower_failure": 0,
@@ -478,6 +479,18 @@ class MultiServiceDynamicEnv:
                 pending = self.pending_hac_decisions.pop(service_id, None)
                 if pending is not None:
                     decision = HACDecision(-1, True, 0, pending.scope, None, None, pending.decision_id)
+                    if not self.hac_worker.pending_scope_still_feasible(
+                        service, pending.scope, prediction, graph
+                    ):
+                        # Preserve the delayed decision for Upper credit without
+                        # attempting a link-only action that cannot keep its hosts.
+                        self.hac_stats["pending_cancelled"] += 1
+                        self.hac_stats["pending_stale_cancelled"] += 1
+                        self.hac_events.append(HACWorkerEvent(
+                            self.time_step, service.service_id, decision, None,
+                            bool(health["sla_violated"]), "pending_cancelled", pending.decision_id,
+                        ))
+                        continue
                     self.hac_stats["pending_executed"] += 1
                     reconfigurations += int(self._reconfigure_hac(service, graph, prediction, decision, bool(health["sla_violated"]), "pending_execution"))
                     continue

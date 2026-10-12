@@ -17,7 +17,7 @@ from .mdp.actor_critic import ExecutionActorCritic, PlanningActorCritic
 from .mdp.execution_env import ExecutionEnv
 from .mdp.planning_env import PlanningEnv, PlanningObservation
 from .planner import MigrationPlan
-from .topology import RiskPrediction, RunningService, TimeVaryingTopology, edge_key
+from .topology import Deployment, RiskPrediction, RunningService, TimeVaryingTopology, edge_key
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,94 @@ class MultiServiceHACWorkerAdapter:
                 return False
         return True
 
+    @staticmethod
+    def _released_service_graph(residual_graph: nx.Graph, service: RunningService) -> nx.Graph:
+        """Mirror the environment's release transaction on an isolated graph copy."""
+        graph = nx.Graph(residual_graph)
+        for v_node, physical_node in service.deployment.node_mapping.items():
+            if graph.has_node(physical_node):
+                demand = float(service.virtual_graph.nodes[v_node].get("cpu", 0.0))
+                graph.nodes[physical_node]["cpu"] = (
+                    float(graph.nodes[physical_node].get("cpu", 0.0)) + demand
+                )
+        for v_link, path in service.deployment.link_mapping.items():
+            demand = float(service.virtual_graph.edges[v_link].get("bandwidth", 0.0))
+            for link_id in path:
+                if graph.has_edge(*link_id):
+                    graph.edges[link_id]["bandwidth"] = (
+                        float(graph.edges[link_id].get("bandwidth", 0.0)) + demand
+                    )
+        return graph
+
+    def _node_remapping_can_start(
+        self,
+        service: RunningService,
+        scope: str,
+        prediction: RiskPrediction,
+        residual_graph: nx.Graph,
+    ) -> bool:
+        """Mask only immediate remaps that have no feasible first Lower action."""
+        released_graph = self._released_service_graph(residual_graph, service)
+        plan = self._localize_scope(service, prediction, scope, released_graph)
+        expected_node, expected_link = prediction.expected_risk_maps()
+        return ExecutionEnv.can_start(
+            released_graph,
+            service,
+            plan,
+            expected_node,
+            prediction.future_node_risk,
+            expected_link,
+            self.executor.config.risk_weight,
+        )
+
+    def _link_only_can_route(
+        self,
+        service: RunningService,
+        prediction: RiskPrediction,
+        residual_graph: nx.Graph,
+    ) -> bool:
+        """Dry-run a link-only reroute on the released resource snapshot.
+
+        Unlike node remapping, a link-only request has a fully known placement.
+        It can therefore be checked exactly before being accepted by Upper or a
+        delayed-plan executor.  The executor receives a graph copy, so this
+        guard cannot mutate the shared ledger.
+        """
+        if not self._link_only_nodes_feasible(service, residual_graph):
+            return False
+        released_graph = self._released_service_graph(residual_graph, service)
+        _, expected_link = prediction.expected_risk_maps()
+        plan = self._localize_scope(service, prediction, "link-only", released_graph)
+        try:
+            self.executor.route_links(
+                nx.Graph(released_graph),
+                service,
+                dict(service.deployment.node_mapping),
+                expected_link,
+                "Link-only feasibility check",
+                set(plan.target_v_links),
+            )
+        except (RuntimeError, nx.NetworkXError):
+            return False
+        return True
+
+    def pending_scope_still_feasible(
+        self,
+        service: RunningService,
+        scope: str,
+        prediction: RiskPrediction,
+        residual_graph: nx.Graph,
+    ) -> bool:
+        """Reject a delayed plan that cannot start on its current snapshot.
+
+        Node-remapping plans are re-localized at the due slot, then checked for a
+        valid first Lower action on the released graph. Link-only plans retain
+        fixed hosts and therefore require their original host feasibility check.
+        """
+        if scope == "link-only":
+            return self._link_only_can_route(service, prediction, residual_graph)
+        return self._node_remapping_can_start(service, scope, prediction, residual_graph)
+
     def upper_observation(
         self,
         service: RunningService,
@@ -186,12 +274,31 @@ class MultiServiceHACWorkerAdapter:
         # Upper HAC must decide scope itself. Target localization happens later.
         mask = np.zeros_like(observation.action_mask)
         mask[self.planning_env.encode_action(0, 0, 0)] = True
-        link_only_feasible = self._link_only_nodes_feasible(service, residual_graph)
+        immediate_scope_feasible = {
+            "link-only": self._link_only_can_route(service, prediction, residual_graph),
+            "partial": self._node_remapping_can_start(
+                service, "partial", prediction, residual_graph
+            ),
+            "full": self._node_remapping_can_start(
+                service, "full", prediction, residual_graph
+            ),
+        }
+        # Full remapping is a recovery scope, not the default proactive action.
+        # When the selected service can still start a partial remap on the
+        # released snapshot, keep Full masked to avoid needless whole-service
+        # churn. If Partial cannot start, Full remains available as a fallback.
+        full_recovery_required = not immediate_scope_feasible["partial"]
         for delay_value in range(self.planning_env.max_delay + 1):
             if delay_value >= service.remaining_lifetime:
                 continue
             for scope_index in range(len(self.planning_env.scopes)):
-                if self.planning_env.scopes[scope_index] == "link-only" and not link_only_feasible:
+                scope = self.planning_env.scopes[scope_index]
+                if scope == "full" and not full_recovery_required:
+                    continue
+                # A delayed request is deliberately re-evaluated with the latest
+                # residual graph when it becomes due; only immediate requests can
+                # be ruled out by the current feasibility snapshot.
+                if delay_value == 0 and not immediate_scope_feasible[scope]:
                     continue
                 mask[self.planning_env.encode_action(1, delay_value, scope_index)] = True
         return PlanningObservation(state=observation.state, action_mask=mask)
@@ -370,6 +477,8 @@ class MultiServiceHACWorkerAdapter:
                 plan,
                 expected_node,
                 physical_prediction.future_node_risk,
+                expected_link,
+                self.executor.config.risk_weight,
             )
             lower_decisions = 0
             while observation is not None:
@@ -408,13 +517,10 @@ class MultiServiceHACWorkerAdapter:
                     service, expected_node, expected_link, "missing-execution-graph", plan,
                     lower_trace, "missing_execution_graph", candidate_counts, placement_completed,
                 )
-            deployment = self.executor.route_links(
-                execution_env.graph,
-                service,
-                execution_env.node_mapping,
-                expected_link,
-                f"Multi-service HAC reconfiguration ({scope})",
-                set(plan.target_v_links),
+            deployment = Deployment(
+                node_mapping=dict(execution_env.node_mapping),
+                link_mapping={link: list(path) for link, path in execution_env.link_mapping.items()},
+                description=f"Multi-service HAC reconfiguration ({scope})",
             )
             outcome = self.executor.assess_deployment(service, deployment, expected_node, expected_link)
             return HACExecutionResult(

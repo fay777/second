@@ -296,7 +296,7 @@ Trainer 会在 validation 开始前按相同 workload seeds 计算一次 Static 
 --update-batch-episodes N
 ```
 
-每个 episode 仍是一条独立 trajectory：discounted return 在各自 episode 内反向计算，不跨 episode 传播。仅在收集 `N` 条 trajectory 后，对合并的 records 统一标准化 advantage 并执行一次 Upper/Lower optimizer update。validation interval 必须能被 `N` 整除，以保证评估的是刚更新的策略。
+每个 episode 是一个独立的采样单元。Upper 在 episode 内按 `service_id` 拆成多条 trajectory，discounted return 只沿同一服务的决策累计，既不跨服务，也不跨 episode。Lower 仍按每次 execution 分成独立 trajectory。收集 `N` 个 episode 后，对所有 records 统一标准化 advantage 并执行一次 Upper/Lower optimizer update。validation interval 必须能被 `N` 整除，以保证评估的是刚更新的策略。
 
 第一轮稳定性诊断固定为：
 
@@ -323,6 +323,30 @@ explained variance = 1 - Var(return - value) / Var(return)
 同时记录 Upper 二元 gate 的 KEEP/MIGRATE 数量、即时 reward 平均值和 discounted-return 平均值。若 EV 持续接近或低于零，且 value 未跟随 return 的均值与尺度，再单独测试固定比例 return scaling；若 KEEP 的实际 return 系统性更高，则优先检查 reward/跨服务 credit assignment，而不是误判为 critic 数值问题。
 
 固定比例 scaling 由 `--critic-return-scale c` 控制。critic target 使用 `cG`，actor 使用 `cG-V(s)` 后仍统一标准化 advantage；因此不会改变 risk、cost、SLA 等 reward 分量的相对偏好。诊断日志会将 value、RMSE 和 return 统一反变换到原始 reward 单位。第一轮仅测试 `c=0.05`，不同时修改学习率、reward 或 credit assignment。
+
+本地 `c=0.05` 的 20 回合诊断中，Upper EV 仍为负，约 `-0.026` 至 `-0.036`；固定 scaling 未改善 critic。下一轮恢复默认 `c=1.0`，仅测试按服务分组的 Upper trajectory。执行事件仍按 `origin_decision_id` 将即时或延迟奖励归给原 Upper 决策。由于服务竞争共享 CPU/BW，按服务分组也会忽略部分跨服务外部性，因此此改动先作为 credit assignment 消融诊断，根据 critic EV、KEEP 比例与 held-out SLA 判断是否保留。
+
+本地按服务分组的 20 回合诊断（`risk=20`、`c=1.0`、batch=5、seed=100）共完成四次更新。每批约 50 条服务轨迹，Upper return 均值约 `-3.6` 至 `-4.8`，RMSE 约 `5.3` 至 `7.5`；相比旧跨服务串联目标，目标尺度显著降低。但 EV 仍为 `-0.006` 至 `-0.003`，value 均值约 `-0.03` 至 `0.02`，critic 仍未形成有效 baseline。KEEP 的平均即时回报和 discounted return 均高于 MIGRATE。此次运行禁用 validation，只验证 credit assignment 和训练接口，不能据此判断系统 SLA 已改善。下一步应针对 critic 的学习速度与回报归因分别设计对照，不要把 RMSE 的下降误写成预测能力提高。
+
+## 2026-10-11：Critic 学习速度与 Upper 回报归因修正
+
+本轮检查发现，旧版 Upper critic 的 value 均值接近 0，而 raw return 明显为负；batch 之间的 pre-update explained variance 长期约为 0。仅缩放 critic target 没有解决拟合问题。本轮将 actor、critic 使用独立 optimizer，新增 `--critic-lr` 和 `--critic-updates`；actor 每批更新一次，critic 可在同一批状态及原始 discounted return 上做多次拟合。日志分别记录更新前、后的 RMSE/EV。更新后的同批 EV 只能证明拟合，不等于泛化；跨批次 pre-update EV 更重要。
+
+Upper return 现在只沿同一 service 的决策链累计，并按真实间隔 `gamma ** elapsed_slots` 折扣。延迟执行产生的 reward 按相同时间间隔归给原始 decision；同一服务的未来 SLA 观察窗口截止到下一次 Upper 决策，避免重复归因。KEEP 在当前已违反 SLA 时也支付当前 SLA penalty；此前这一项只落到 MIGRATE execution，造成不公平的 gate 比较。日志加入 KEEP/MIGRATE 分组的已归因 reward components。此分组均值是观察性统计，不是同一状态下的因果反事实。
+
+本地 20-episode 诊断采用 `risk=20`、batch=5、`critic-lr=0.003`、`critic-updates=20`，Upper 各批更新前 EV 为 `-0.004、+0.167、+0.138、+0.294`，说明 critic 开始学习；但固定 argmax 开发评估在 `1200..1202` 三个 seed 上仍为 100% KEEP，SLA 与 Static 相同。不能把 critic 改善解释为最终策略成功。训练执行审计有 188 次接受、195 次无候选宿主、35 次无可行路由。无候选中 125 次发生在首个 Lower 动作前，70 次发生在部分 VNF 放置之后；日志现分别记录 `no_candidate_initial` 与 `no_candidate_after_placement`。后续应针对真正不可行与顺序放置死路做对照，而不是直接放宽约束、调 reward 或宣称已经优于 Static。
+
+这轮诊断可复现的参数组合是 `--critic-lr 0.003 --critic-updates 20 --update-batch-episodes 5 --reward-risk-weight 20`。尚不建议启动正式 200-episode 长训练。
+
+随后针对无候选宿主，将 ExecutionEnv 的 candidate mask 改为轻量的剩余 CPU-host 二分图匹配必要条件：某个当前候选若会占用后续 VNF 的唯一 CPU 可行宿主，就从 Lower action mask 移除。该检查不估计路由，也不放宽资源限制；路由仍在 placement 完成后确定性执行。由于全量“候选 x 路由 x 匹配”前瞻对 100 节点场景计算代价过高，未采用该实现。
+
+Upper action mask 也新增即时 remap 启动检查。对 `delay=0` 的 `partial/full`，若当前 released residual graph 中没有任何可启动的 Lower placement，则将该 action mask；对 `delay>0` 保持可选，到期时仍基于最新 residual graph 重新判断。这样不会把未来可能恢复可行的延迟迁移提前禁止。60-slot 本地 smoke 正常完成 24 次 Upper 决策、12 次 execution、7 次 accepted migration，记录 `no_candidate_initial=0`、`no_candidate_after_placement=1`。这是接口验证，不构成与旧版本的性能对比，也不证明 risk/SLA 已改善。
+
+启动检查随后修正为先在 Worker 私有副本中释放当前 service 的 CPU/BW reservation，再构造 partial/full plan 和候选 mask；正式环境的执行事务也是先 release 再 remap。旧实现错误地用“尚包含当前服务预留”的 graph 预检查，可能把可通过交换原宿主完成的 full remap 错误 mask 掉。该副本不写回 shared ledger，只用于 action feasibility；真正 commit/rollback 仍由 MultiServiceDynamicEnv 独占。
+
+本地 20-episode 诊断（`seed=100`、`risk=20`、batch=5、critic lr=`0.003`、critic updates=`20`）中，Upper 的 batch pre-update EV 为 `-0.004、+0.190、+0.189、+0.216`，critic 已不再是零价值 baseline。总计 404 次执行事件、156 次迁移提交，其中 309 次是 delayed pending 执行。失败最集中的模式是 delayed `link-only` 的 `fixed_node_infeasible`（79 次）：延迟期间原宿主已失效，而 link-only 不能修复节点。
+
+因此新增 stale pending guard：link-only pending 在 due slot 使用最新 residual graph 检查固定节点；partial/full pending 则先重新 localized，再检查是否仍存在第一个可行 Lower action。任何 scope 若已无法启动，均记录 `pending_cancelled` 与 `pending_stale_cancelled`，不调用必然失败的 executor。Trainer 对 `pending_cancelled` 写入 `failure=-1`，并通过 `origin_decision_id` 归因给创建该 pending 的 Upper action。下一时隙服务会按最新预测重新进入 Selector/HAC；路由可行性仍由后续确定性 routing 验证。
 
 ## 常用命令
 

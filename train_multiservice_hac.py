@@ -113,14 +113,17 @@ def upper_action_distributions(model, state, planning_mask, device):
 
 
 def update_policy(
-    model, optimizer, trajectories, gamma: float, critic_return_scale: float = 1.0
+    model, optimizer, trajectories, gamma: float, critic_return_scale: float = 1.0,
+    critic_optimizer=None, critic_updates: int = 1,
 ) -> Dict[str, float]:
     """Update independent trajectories with an optional fixed critic-target scale."""
     if critic_return_scale <= 0.0:
         raise ValueError("critic_return_scale must be positive.")
+    if critic_updates < 1:
+        raise ValueError("critic_updates must be positive.")
     trajectories = [trajectory for trajectory in trajectories if trajectory]
     if not trajectories:
-        return {
+        empty = {
             "loss": 0.0,
             "actor_loss": 0.0,
             "critic_loss": 0.0,
@@ -129,6 +132,8 @@ def update_policy(
             "value_mean": 0.0,
             "value_std": 0.0,
             "critic_rmse": 0.0,
+            "critic_post_rmse": 0.0,
+            "critic_post_explained_variance": 0.0,
             "value_return_corr": 0.0,
             "explained_variance": 0.0,
             "advantage_raw_std": 0.0,
@@ -144,11 +149,26 @@ def update_policy(
             "trajectories": 0.0,
             "records": 0.0,
         }
+        empty.update({
+            f"gate_{group}_{name}_mean": 0.0
+            for group in ("keep", "migrate") for name in REWARD_COMPONENTS
+        })
+        return empty
     records, return_values = [], []
     for trajectory in trajectories:
         returns, value = [], 0.0
-        for record in reversed(trajectory):
-            value = float(record["reward"]) + gamma * value
+        for index in range(len(trajectory) - 1, -1, -1):
+            record = trajectory[index]
+            if index + 1 < len(trajectory):
+                next_record = trajectory[index + 1]
+                if "time_step" in record and "time_step" in next_record:
+                    elapsed = int(next_record["time_step"]) - int(record["time_step"])
+                    if elapsed < 1:
+                        raise RuntimeError("Upper decisions for one service must advance in time.")
+                else:
+                    elapsed = 1
+                value *= gamma ** elapsed
+            value += float(record["reward"])
             returns.append(value)
         records.extend(trajectory)
         return_values.extend(reversed(returns))
@@ -179,13 +199,36 @@ def update_policy(
     actor_loss = -(log_probs * advantages).mean()
     critic_loss = torch.nn.functional.mse_loss(values, returns)
     loss = actor_loss + 0.5 * critic_loss
-    optimizer.zero_grad()
-    loss.backward()
-    # Actor and critic are separate MLPs, so clipping them independently preserves
-    # diagnostic visibility and avoids cross-head clipping coupling.
-    actor_grad_norm = torch.nn.utils.clip_grad_norm_(model.actor.parameters(), 1.0)
-    critic_grad_norm = torch.nn.utils.clip_grad_norm_(model.critic.parameters(), 1.0)
-    optimizer.step()
+    if critic_optimizer is None:
+        if critic_updates != 1:
+            raise ValueError("Multiple critic updates require a separate critic_optimizer.")
+        optimizer.zero_grad()
+        loss.backward()
+        actor_grad_norm = torch.nn.utils.clip_grad_norm_(model.actor.parameters(), 1.0)
+        critic_grad_norm = torch.nn.utils.clip_grad_norm_(model.critic.parameters(), 1.0)
+        optimizer.step()
+        post_values = detached_values
+    else:
+        optimizer.zero_grad()
+        actor_loss.backward()
+        actor_grad_norm = torch.nn.utils.clip_grad_norm_(model.actor.parameters(), 1.0)
+        optimizer.step()
+        states = torch.stack([record["state"] for record in records])
+        for _ in range(critic_updates):
+            critic_optimizer.zero_grad()
+            fitted_values = model.value(states).squeeze(-1)
+            fitted_loss = torch.nn.functional.mse_loss(fitted_values, returns)
+            (0.5 * fitted_loss).backward()
+            critic_grad_norm = torch.nn.utils.clip_grad_norm_(model.critic.parameters(), 1.0)
+            critic_optimizer.step()
+        with torch.no_grad():
+            post_values = model.value(states).squeeze(-1)
+    post_raw_values = post_values / critic_return_scale
+    post_residuals = raw_returns - post_raw_values
+    post_explained_variance = (
+        float((1.0 - post_residuals.var(unbiased=False) / return_variance).item())
+        if return_variance.item() > 1e-6 else 0.0
+    )
     gate_metrics = {}
     groups = [record.get("action_group") for record in records]
     rewards = torch.tensor(
@@ -201,6 +244,11 @@ def update_policy(
         gate_metrics[f"{prefix}_return_mean"] = (
             float(raw_returns[indices].mean().item()) if indices else 0.0
         )
+        for name in REWARD_COMPONENTS:
+            gate_metrics[f"{prefix}_{name}_mean"] = (
+                sum(records[index].get("reward_components", {}).get(name, 0.0) for index in indices)
+                / len(indices) if indices else 0.0
+            )
     return {
         "loss": float(loss.item()),
         "actor_loss": float(actor_loss.item()),
@@ -210,6 +258,8 @@ def update_policy(
         "value_mean": float(raw_values.mean().item()),
         "value_std": float(raw_values.std(unbiased=False).item()),
         "critic_rmse": float(torch.sqrt(critic_loss.detach()).item() / critic_return_scale),
+        "critic_post_rmse": float(torch.sqrt(post_residuals.square().mean()).item()),
+        "critic_post_explained_variance": post_explained_variance,
         "value_return_corr": value_return_corr,
         "explained_variance": explained_variance,
         "advantage_raw_std": float(advantage_raw_std.item()),
@@ -232,6 +282,12 @@ def event_reward(event: HACWorkerEvent, weights: RewardWeights) -> Tuple[float, 
     """Return raw and calibrated reward components for reproducible experiments."""
     components = {name: 0.0 for name in REWARD_COMPONENTS}
     if event.execution is None:
+        if event.event_type == "upper_decision" and event.sla_violated:
+            components["sla"] = -1.0
+        elif event.event_type == "pending_cancelled":
+            # A delayed scope became infeasible before it could be executed.
+            # Attribute the stale-plan failure to the originating Upper action.
+            components["failure"] = -1.0
         reward, weighted = weighted_reward(components, weights)
         return reward, components, weighted
     outcome = event.execution.outcome
@@ -306,22 +362,33 @@ def evaluate_static_policy(seed, steps):
     }
 
 
-def future_sla_penalty(event, service_sla_history):
+def future_sla_penalty(event, service_sla_history, next_decision_time=None):
     """Credit every Upper action by the observed SLA outcome over the ST-GCN horizon."""
+    horizon_end = event.time_step + FUTURE_SLA_HORIZON
+    if next_decision_time is not None:
+        horizon_end = min(horizon_end, next_decision_time)
     future = [
         service_sla_history[(time_step, event.service_id)]
-        for time_step in range(event.time_step + 1, event.time_step + FUTURE_SLA_HORIZON + 1)
+        for time_step in range(event.time_step + 1, horizon_end + 1)
         if (time_step, event.service_id) in service_sla_history
     ]
     return -float(sum(future)) / max(1, len(future))
 
 
-def assign_event_rewards(events, service_sla_history, upper_records, lower_records, weights: RewardWeights):
+def assign_event_rewards(
+    events, service_sla_history, upper_records, lower_records, weights: RewardWeights, gamma: float = 1.0
+):
     """Credit delayed actions by ID and keep each Lower execution independent."""
     upper_events = [event for event in events if event.event_type == "upper_decision"]
     if len(upper_events) != len(upper_records):
         raise RuntimeError("Upper action trace does not match upper-decision events.")
     upper_by_id = {event.origin_decision_id: record for event, record in zip(upper_events, upper_records)}
+    origin_times = {event.origin_decision_id: event.time_step for event in upper_events}
+    next_decision_times = {}
+    next_by_service = {}
+    for event in reversed(upper_events):
+        next_decision_times[event.origin_decision_id] = next_by_service.get(event.service_id)
+        next_by_service[event.service_id] = event.time_step
     lower_queue = deque(lower_records)
     raw_totals = {name: 0.0 for name in REWARD_COMPONENTS}
     weighted_totals = {name: 0.0 for name in REWARD_COMPONENTS}
@@ -330,7 +397,9 @@ def assign_event_rewards(events, service_sla_history, upper_records, lower_recor
     for event in events:
         reward, components, weighted_components = event_reward(event, weights)
         if event.event_type == "upper_decision":
-            components["future_sla"] = future_sla_penalty(event, service_sla_history)
+            components["future_sla"] = future_sla_penalty(
+                event, service_sla_history, next_decision_times[event.origin_decision_id]
+            )
             reward, weighted_components = weighted_reward(components, weights)
         for name, value in components.items():
             raw_totals[name] += value
@@ -340,7 +409,16 @@ def assign_event_rewards(events, service_sla_history, upper_records, lower_recor
         upper_record = upper_by_id.get(event.origin_decision_id)
         if upper_record is None:
             raise RuntimeError(f"Missing upper record for HAC decision {event.origin_decision_id}.")
-        upper_record["reward"] += reward
+        elapsed = event.time_step - origin_times[event.origin_decision_id]
+        if elapsed < 0:
+            raise RuntimeError("HAC execution predates its Upper decision.")
+        credit_factor = gamma ** elapsed
+        upper_record["reward"] += credit_factor * reward
+        credited_components = upper_record.setdefault(
+            "reward_components", {name: 0.0 for name in REWARD_COMPONENTS}
+        )
+        for name, value in weighted_components.items():
+            credited_components[name] += credit_factor * value
         if event.execution is not None:
             execution_records = []
             for _ in event.execution.lower_trace:
@@ -357,6 +435,22 @@ def assign_event_rewards(events, service_sla_history, upper_records, lower_recor
     return raw_totals, weighted_totals, lower_trajectories
 
 
+def upper_service_trajectories(events, upper_records):
+    """Keep chronological Upper decisions independent for each running service."""
+    upper_events = [event for event in events if event.event_type == "upper_decision"]
+    if len(upper_events) != len(upper_records):
+        raise RuntimeError("Upper action trace does not match upper-decision events.")
+    trajectories = {}
+    seen_decisions = set()
+    for event, record in zip(upper_events, upper_records):
+        if event.origin_decision_id in seen_decisions:
+            raise RuntimeError(f"Duplicate HAC decision ID {event.origin_decision_id}.")
+        seen_decisions.add(event.origin_decision_id)
+        record["time_step"] = event.time_step
+        trajectories.setdefault(event.service_id, []).append(record)
+    return list(trajectories.values())
+
+
 def execution_diagnostics(execution_events):
     """Summarize execution-only quality without mixing in Upper KEEP credits."""
     scopes = ("link-only", "partial", "full")
@@ -364,6 +458,16 @@ def execution_diagnostics(execution_events):
     diagnostics = {
         "execution_events": len(execution_events),
         "accepted_migrations": len(accepted_events),
+        "no_candidate_initial": sum(
+            event.execution.failure_stage == "no_candidate_host"
+            and not event.execution.candidate_counts
+            for event in execution_events
+        ),
+        "no_candidate_after_placement": sum(
+            event.execution.failure_stage == "no_candidate_host"
+            and bool(event.execution.candidate_counts)
+            for event in execution_events
+        ),
     }
     for scope in scopes:
         attempts = [event for event in execution_events if event.decision.scope == scope]
@@ -372,6 +476,10 @@ def execution_diagnostics(execution_events):
         node_deltas = [float(event.execution.outcome.node_risk_reduction) for event in accepted]
         link_deltas = [float(event.execution.outcome.link_risk_reduction) for event in accepted]
         component_deltas = [node + link for node, link in zip(node_deltas, link_deltas)]
+        costs = [float(event.execution.outcome.total_cost) for event in accepted]
+        disruptions = [0.5 if event.decision.scope == "link-only" else 1.0 for event in accepted]
+        node_migrations = [int(event.execution.outcome.node_migrations) for event in accepted]
+        link_reroutes = [int(event.execution.outcome.link_reroutes) for event in accepted]
         diagnostics[f"execution_scope_{scope}_attempts"] = len(attempts)
         diagnostics[f"accepted_scope_{scope}"] = len(accepted)
         diagnostics[f"accepted_rate_scope_{scope}"] = len(accepted) / max(1, len(attempts))
@@ -379,6 +487,10 @@ def execution_diagnostics(execution_events):
         diagnostics[f"accepted_avg_node_risk_reduction_scope_{scope}"] = sum(node_deltas) / max(1, len(node_deltas))
         diagnostics[f"accepted_avg_link_risk_reduction_scope_{scope}"] = sum(link_deltas) / max(1, len(link_deltas))
         diagnostics[f"accepted_avg_component_risk_reduction_scope_{scope}"] = sum(component_deltas) / max(1, len(component_deltas))
+        diagnostics[f"accepted_avg_cost_scope_{scope}"] = sum(costs) / max(1, len(costs))
+        diagnostics[f"accepted_avg_disruption_scope_{scope}"] = sum(disruptions) / max(1, len(disruptions))
+        diagnostics[f"accepted_avg_node_migrations_scope_{scope}"] = sum(node_migrations) / max(1, len(node_migrations))
+        diagnostics[f"accepted_avg_link_reroutes_scope_{scope}"] = sum(link_reroutes) / max(1, len(link_reroutes))
         diagnostics[f"accepted_risk_improved_scope_{scope}"] = sum(delta > 1e-9 for delta in deltas)
         diagnostics[f"accepted_risk_worsened_scope_{scope}"] = sum(delta < -1e-9 for delta in deltas)
         diagnostics[f"accepted_risk_unchanged_scope_{scope}"] = sum(abs(delta) <= 1e-9 for delta in deltas)
@@ -546,6 +658,8 @@ def main():
     parser.add_argument("--steps", type=int, default=100)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--critic-lr", type=float, default=None)
+    parser.add_argument("--critic-updates", type=int, default=1)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument(
         "--critic-return-scale",
@@ -597,6 +711,8 @@ def main():
         raise ValueError("update_batch_episodes must be positive.")
     if args.critic_return_scale <= 0.0:
         raise ValueError("critic_return_scale must be positive.")
+    if args.critic_updates < 1 or (args.critic_lr is not None and args.critic_lr <= 0.0):
+        raise ValueError("critic_updates and critic_lr must be positive.")
     if args.validation_seeds and args.validation_interval % args.update_batch_episodes:
         raise ValueError(
             "validation_interval must be divisible by update_batch_episodes so validation "
@@ -626,8 +742,11 @@ def main():
     device = torch.device(args.device)
     upper = PlanningActorCritic(UPPER_STATE_DIM, UPPER_ACTION_DIM).to(device)
     lower = ExecutionActorCritic(LOWER_STATE_DIM, LOWER_CANDIDATE_DIM).to(device)
-    upper_opt = torch.optim.Adam(upper.parameters(), lr=args.lr)
-    lower_opt = torch.optim.Adam(lower.parameters(), lr=args.lr)
+    critic_lr = args.lr if args.critic_lr is None else args.critic_lr
+    upper_opt = torch.optim.Adam(upper.actor.parameters(), lr=args.lr)
+    lower_opt = torch.optim.Adam(lower.actor.parameters(), lr=args.lr)
+    upper_critic_opt = torch.optim.Adam(upper.critic.parameters(), lr=critic_lr)
+    lower_critic_opt = torch.optim.Adam(lower.critic.parameters(), lr=critic_lr)
     args.output.mkdir(parents=True, exist_ok=True)
     history = []
     execution_audit = []
@@ -643,6 +762,7 @@ def main():
 
     upper_batch_trajectories = []
     lower_batch_trajectories = []
+    batch_episode_count = 0
     batch_start_episode = 0
     for episode in range(args.episodes):
         upper.train()
@@ -664,7 +784,8 @@ def main():
                 planning_action = migration_action_to_planning_action(int(migration_action.item()))
             upper_records.append({
                 "log_prob": log_prob.squeeze(),
-                "value": upper.value(state).squeeze(),
+                "value": upper.value(state).squeeze().detach(),
+                "state": state.squeeze(0).detach(),
                 "reward": 0.0,
                 "action_group": "keep" if int(decision.item()) == 0 else "migrate",
             })
@@ -675,7 +796,12 @@ def main():
             candidates = torch.tensor(obs.candidate_features, dtype=torch.float32, device=device).unsqueeze(0)
             dist = Categorical(logits=lower.act(state, candidates))
             action = dist.sample()
-            lower_records.append({"log_prob": dist.log_prob(action).squeeze(), "value": lower.value(state).squeeze(), "reward": 0.0})
+            lower_records.append({
+                "log_prob": dist.log_prob(action).squeeze(),
+                "value": lower.value(state).squeeze().detach(),
+                "state": state.squeeze(0).detach(),
+                "reward": 0.0,
+            })
             return int(action.item())
 
         seed = args.seed + episode
@@ -687,24 +813,30 @@ def main():
             upper_records,
             lower_records,
             reward_weights,
+            args.gamma,
         )
-        upper_batch_trajectories.append(upper_records)
+        service_trajectories = upper_service_trajectories(result["hac_events"], upper_records)
+        upper_batch_trajectories.extend(service_trajectories)
         lower_batch_trajectories.extend(lower_trajectories)
+        batch_episode_count += 1
         batch_complete = (
-            len(upper_batch_trajectories) == args.update_batch_episodes
+            batch_episode_count == args.update_batch_episodes
             or episode + 1 == args.episodes
         )
         upper_update = None
         lower_update = None
         if batch_complete:
             upper_update = update_policy(
-                upper, upper_opt, upper_batch_trajectories, args.gamma, args.critic_return_scale
+                upper, upper_opt, upper_batch_trajectories, args.gamma, args.critic_return_scale,
+                upper_critic_opt, args.critic_updates,
             )
             lower_update = update_policy(
-                lower, lower_opt, lower_batch_trajectories, args.gamma, args.critic_return_scale
+                lower, lower_opt, lower_batch_trajectories, args.gamma, args.critic_return_scale,
+                lower_critic_opt, args.critic_updates,
             )
             upper_batch_trajectories = []
             lower_batch_trajectories = []
+            batch_episode_count = 0
         execution_attempts = result["upper_immediate_count"] + result["pending_executed"]
         upper_action_count = max(1, len(upper_records))
         execution_events = [event for event in result["hac_events"] if event.execution is not None]
@@ -728,6 +860,7 @@ def main():
             "upper_loss": None if upper_update is None else upper_update["loss"],
             "lower_loss": None if lower_update is None else lower_update["loss"],
             "upper_actions": len(upper_records),
+            "upper_service_trajectories": len(service_trajectories),
             "lower_actions": len(lower_records),
             "lower_executions": len(lower_trajectories),
             "sla_violation_rate": result["sla_violation_rate"],
@@ -745,6 +878,7 @@ def main():
             "pending_created": result["pending_created"],
             "pending_executed": result["pending_executed"],
             "pending_cancelled": result["pending_cancelled"],
+            "pending_stale_cancelled": result["pending_stale_cancelled"],
             "lower_success": result["lower_success"],
             "lower_failure": result["lower_failure"],
             "routing_success": result["routing_success"],
@@ -775,6 +909,8 @@ def main():
                 "value_mean",
                 "value_std",
                 "critic_rmse",
+                "critic_post_rmse",
+                "critic_post_explained_variance",
                 "value_return_corr",
                 "explained_variance",
                 "advantage_raw_std",
@@ -787,6 +923,7 @@ def main():
                 "gate_migrate_reward_mean",
                 "gate_keep_return_mean",
                 "gate_migrate_return_mean",
+                *(f"gate_{group}_{name}_mean" for group in ("keep", "migrate") for name in REWARD_COMPONENTS),
                 "trajectories",
                 "records",
             ):
@@ -815,6 +952,12 @@ def main():
                 "post_link_risk": event.execution.outcome.post_link_risk,
                 "node_risk_reduction": event.execution.outcome.node_risk_reduction,
                 "link_risk_reduction": event.execution.outcome.link_risk_reduction,
+                "node_migrations": event.execution.outcome.node_migrations,
+                "link_reroutes": event.execution.outcome.link_reroutes,
+                "node_migration_cost": event.execution.outcome.node_migration_cost,
+                "link_reroute_cost": event.execution.outcome.link_reroute_cost,
+                "realized_cost": event.execution.outcome.total_cost,
+                "disruption": 0.5 if event.decision.scope == "link-only" else 1.0,
             })
         update_status = "pending"
         if batch_complete:
@@ -837,7 +980,9 @@ def main():
             print(
                 f"  upper critic fit: value={upper_update['value_mean']:+.3f} "
                 f"+/-{upper_update['value_std']:.3f} rmse={upper_update['critic_rmse']:.3f} "
-                f"corr={upper_update['value_return_corr']:+.3f} EV={upper_update['explained_variance']:+.3f}"
+                f"corr={upper_update['value_return_corr']:+.3f} EV={upper_update['explained_variance']:+.3f} "
+                f"post_rmse={upper_update['critic_post_rmse']:.3f} "
+                f"post_EV={upper_update['critic_post_explained_variance']:+.3f}"
             )
             print(
                 f"  optimizer lower: actor={lower_update['actor_loss']:+.4f} "
@@ -849,7 +994,9 @@ def main():
             print(
                 f"  lower critic fit: value={lower_update['value_mean']:+.3f} "
                 f"+/-{lower_update['value_std']:.3f} rmse={lower_update['critic_rmse']:.3f} "
-                f"corr={lower_update['value_return_corr']:+.3f} EV={lower_update['explained_variance']:+.3f}"
+                f"corr={lower_update['value_return_corr']:+.3f} EV={lower_update['explained_variance']:+.3f} "
+                f"post_rmse={lower_update['critic_post_rmse']:.3f} "
+                f"post_EV={lower_update['critic_post_explained_variance']:+.3f}"
             )
             print(
                 f"  upper gate returns: keep n={int(upper_update['gate_keep_count'])} "
@@ -857,11 +1004,18 @@ def main():
                 f"migrate n={int(upper_update['gate_migrate_count'])} "
                 f"r={upper_update['gate_migrate_reward_mean']:+.3f} G={upper_update['gate_migrate_return_mean']:+.3f}"
             )
+            for group in ("keep", "migrate"):
+                components = " ".join(
+                    f"{name}={upper_update[f'gate_{group}_{name}_mean']:+.3f}"
+                    for name in REWARD_COMPONENTS
+                )
+                print(f"  upper {group} credited components: {components}")
         if args.diagnostic:
             print(
                 f"  upper={row['upper_actions']} keep={row['upper_keep_count']} "
                 f"immediate={row['upper_immediate_count']} delayed={row['upper_delayed_count']} "
-                f"pending_exec={row['pending_executed']} pending_cancel={row['pending_cancelled']}"
+                f"pending_exec={row['pending_executed']} pending_cancel={row['pending_cancelled']} "
+                f"stale_cancel={row['pending_stale_cancelled']}"
             )
             print(
                 f"  scope: link={row['scope_link_only_count']} partial={row['scope_partial_count']} "
@@ -968,12 +1122,15 @@ def main():
         "upper_action_dim": UPPER_ACTION_DIM,
         "upper_planning_action_dim": UPPER_PLANNING_ACTION_DIM,
         "upper_action_encoding": "binary_keep_migrate_plus_conditional_delay_scope",
+        "upper_trajectory_unit": "episode_service",
         "lower_state_dim": LOWER_STATE_DIM,
         "lower_candidate_dim": LOWER_CANDIDATE_DIM,
         "reward_components": list(REWARD_COMPONENTS),
         "reward_weights": asdict(reward_weights),
         "critic_target": "fixed_scale_times_raw_discounted_return",
         "critic_return_scale": args.critic_return_scale,
+        "critic_lr": critic_lr,
+        "critic_updates_per_batch": args.critic_updates,
         "actor_advantage": "normalized_return_minus_detached_value",
         "update_batch_episodes": args.update_batch_episodes,
         "calibration_evaluation_policy": "argmax",
