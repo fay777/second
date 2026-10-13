@@ -1,0 +1,502 @@
+nohup: 忽略输入
+validation static reference: sla=0.5927
+episode=000 update=pending sla=0.7329 migrations=8.0 reward=-84.825
+episode=001 update=pending sla=0.5569 migrations=4.0 reward=-77.005
+episode=002 update=pending sla=0.5572 migrations=14.0 reward=-72.565
+episode=003 update=pending sla=0.5699 migrations=7.0 reward=-59.509
+episode=004 update=batch=000-004 upper_loss=28.3509 lower_loss=3.7686 sla=0.6109 migrations=5.0 reward=-67.805
+  optimizer upper: actor=-0.0787 critic=56.8592 return=-5.179 +/-5.439 advantage_std=5.456 actor_grad=0.095 critic_grad=20.319 records=211
+  upper critic fit: value=+0.027 +/-0.030 rmse=7.541 corr=-0.564 EV=-0.006 post_rmse=4.949 post_EV=+0.297
+  optimizer lower: actor=-0.1115 critic=7.7602 return=-2.343 +/-1.516 advantage_std=1.518 actor_grad=0.051 critic_grad=1.166 records=118
+  lower critic fit: value=-0.007 +/-0.010 rmse=2.786 corr=-0.197 EV=-0.003 post_rmse=1.550 post_EV=-0.001
+  upper gate returns: keep n=122 r=-1.131 G=-5.140 | migrate n=89 r=-2.492 G=-5.231
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.607 future_sla=-0.525 failure=+0.000
+  upper migrate credited components: risk=+0.004 cost=-0.201 disruption=-0.356 sla=-0.871 future_sla=-0.506 failure=-0.563
+episode=005 update=pending sla=0.6437 migrations=15.0 reward=-99.879
+episode=006 update=pending sla=0.6104 migrations=8.0 reward=-76.708
+episode=007 update=pending sla=0.5708 migrations=6.0 reward=-55.019
+episode=008 update=pending sla=0.7388 migrations=6.0 reward=-65.635
+episode=009 update=batch=005-009 upper_loss=11.1668 lower_loss=2.1139 sla=0.7279 migrations=10.0 reward=-61.669
+  optimizer upper: actor=-0.2315 critic=22.7967 return=-5.030 +/-4.698 advantage_std=4.301 actor_grad=0.125 critic_grad=5.076 records=203
+  upper critic fit: value=-7.103 +/-1.984 rmse=4.775 corr=+0.403 EV=+0.162 post_rmse=4.193 post_EV=+0.211
+  optimizer lower: actor=+0.2031 critic=3.8215 return=-3.037 +/-1.689 advantage_std=1.689 actor_grad=0.021 critic_grad=1.962 records=131
+  lower critic fit: value=-2.053 +/-0.071 rmse=1.955 corr=+0.018 EV=-0.000 post_rmse=1.659 post_EV=+0.065
+  upper gate returns: keep n=112 r=-1.086 G=-4.546 | migrate n=91 r=-2.582 G=-5.625
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.571 future_sla=-0.515 failure=+0.000
+  upper migrate credited components: risk=-0.099 cost=-0.225 disruption=-0.401 sla=-0.872 future_sla=-0.487 failure=-0.498
+validation episode=010 sla=0.5927 component_risk=-0.00425 global_risk=-0.00471 sla_gain=+0.0000 keep=0.990 migrations=0.40 feasible=False
+episode=010 update=pending sla=0.5920 migrations=7.0 reward=-63.412
+episode=011 update=pending sla=0.6914 migrations=12.0 reward=-81.795
+episode=012 update=pending sla=0.6104 migrations=2.0 reward=-55.392
+episode=013 update=pending sla=0.6759 migrations=11.0 reward=-84.219
+episode=014 update=batch=010-014 upper_loss=18.9487 lower_loss=0.1820 sla=0.6269 migrations=13.0 reward=-50.763
+  optimizer upper: actor=-0.0788 critic=38.0550 return=-6.078 +/-7.583 advantage_std=6.164 actor_grad=0.143 critic_grad=4.036 records=205
+  upper critic fit: value=-5.829 +/-2.827 rmse=6.169 corr=+0.641 EV=+0.339 post_rmse=5.708 post_EV=+0.433
+  optimizer lower: actor=-0.1292 critic=0.6224 return=-2.756 +/-0.780 advantage_std=0.787 actor_grad=0.036 critic_grad=0.082 records=113
+  lower critic fit: value=-2.696 +/-0.185 rmse=0.789 corr=+0.084 EV=-0.016 post_rmse=0.745 post_EV=+0.088
+  upper gate returns: keep n=113 r=-1.012 G=-5.842 | migrate n=92 r=-2.387 G=-6.368
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.513 future_sla=-0.499 failure=+0.000
+  upper migrate credited components: risk=-0.011 cost=-0.205 disruption=-0.371 sla=-0.811 future_sla=-0.486 failure=-0.503
+episode=015 update=pending sla=0.6220 migrations=13.0 reward=-77.045
+episode=016 update=pending sla=0.5000 migrations=14.0 reward=-68.903
+episode=017 update=pending sla=0.6057 migrations=4.0 reward=-64.876
+episode=018 update=pending sla=0.4875 migrations=4.0 reward=-53.145
+episode=019 update=batch=015-019 upper_loss=12.6474 lower_loss=0.4272 sla=0.6512 migrations=7.0 reward=-83.259
+  optimizer upper: actor=-0.2568 critic=25.8083 return=-4.965 +/-5.624 advantage_std=5.058 actor_grad=0.285 critic_grad=4.311 records=217
+  upper critic fit: value=-5.443 +/-5.058 rmse=5.080 corr=+0.556 EV=+0.191 post_rmse=4.485 post_EV=+0.365
+  optimizer lower: actor=-0.1625 critic=1.1793 return=-3.023 +/-1.155 advantage_std=1.066 actor_grad=0.036 critic_grad=0.620 records=128
+  lower critic fit: value=-2.816 +/-0.209 rmse=1.086 corr=+0.500 EV=+0.148 post_rmse=0.960 post_EV=+0.309
+  upper gate returns: keep n=113 r=-0.805 G=-3.787 | migrate n=104 r=-2.443 G=-6.244
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.425 future_sla=-0.381 failure=+0.000
+  upper migrate credited components: risk=-0.064 cost=-0.195 disruption=-0.342 sla=-0.764 future_sla=-0.490 failure=-0.587
+validation episode=020 sla=0.5927 component_risk=+0.00009 global_risk=+0.00000 sla_gain=+0.0000 keep=0.977 migrations=0.40 feasible=False
+episode=020 update=pending sla=0.6099 migrations=6.0 reward=-55.570
+episode=021 update=pending sla=0.6646 migrations=7.0 reward=-69.657
+episode=022 update=pending sla=0.6784 migrations=8.0 reward=-76.141
+episode=023 update=pending sla=0.5731 migrations=9.0 reward=-61.171
+episode=024 update=batch=020-024 upper_loss=5.5857 lower_loss=0.5594 sla=0.6351 migrations=10.0 reward=-67.565
+  optimizer upper: actor=-0.1345 critic=11.4405 return=-4.080 +/-4.659 advantage_std=3.348 actor_grad=0.089 critic_grad=1.521 records=218
+  upper critic fit: value=-4.562 +/-2.641 rmse=3.382 corr=+0.710 EV=+0.484 post_rmse=2.997 post_EV=+0.586
+  optimizer lower: actor=-0.0277 critic=1.1742 return=-3.152 +/-1.246 advantage_std=1.081 actor_grad=0.062 critic_grad=0.144 records=116
+  lower critic fit: value=-3.075 +/-0.493 rmse=1.084 corr=+0.511 EV=+0.248 post_rmse=1.054 post_EV=+0.286
+  upper gate returns: keep n=116 r=-0.810 G=-3.905 | migrate n=102 r=-2.290 G=-4.279
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.422 future_sla=-0.388 failure=+0.000
+  upper migrate credited components: risk=-0.058 cost=-0.187 disruption=-0.319 sla=-0.719 future_sla=-0.408 failure=-0.598
+episode=025 update=pending sla=0.5543 migrations=10.0 reward=-76.623
+episode=026 update=pending sla=0.7150 migrations=13.0 reward=-70.827
+episode=027 update=pending sla=0.6893 migrations=7.0 reward=-62.717
+episode=028 update=pending sla=0.6717 migrations=6.0 reward=-62.168
+episode=029 update=batch=025-029 upper_loss=6.2994 lower_loss=1.3793 sla=0.5033 migrations=11.0 reward=-65.159
+  optimizer upper: actor=-0.2540 critic=13.1068 return=-4.650 +/-5.139 advantage_std=3.550 actor_grad=0.173 critic_grad=4.766 records=209
+  upper critic fit: value=-3.941 +/-2.902 rmse=3.620 corr=+0.745 EV=+0.523 post_rmse=3.060 post_EV=+0.651
+  optimizer lower: actor=+0.3073 critic=2.1440 return=-2.516 +/-1.332 advantage_std=1.388 actor_grad=0.042 critic_grad=0.393 records=141
+  lower critic fit: value=-2.983 +/-0.728 rmse=1.464 corr=+0.195 EV=-0.086 post_rmse=1.303 post_EV=+0.049
+  upper gate returns: keep n=109 r=-0.872 G=-3.875 | migrate n=100 r=-2.405 G=-5.494
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.459 future_sla=-0.413 failure=+0.000
+  upper migrate credited components: risk=-0.027 cost=-0.215 disruption=-0.386 sla=-0.765 future_sla=-0.490 failure=-0.521
+validation episode=030 sla=0.5927 component_risk=+0.00011 global_risk=+0.00000 sla_gain=+0.0000 keep=0.982 migrations=0.30 feasible=False
+episode=030 update=pending sla=0.6850 migrations=6.0 reward=-71.220
+episode=031 update=pending sla=0.4912 migrations=8.0 reward=-42.303
+episode=032 update=pending sla=0.6740 migrations=8.0 reward=-80.262
+episode=033 update=pending sla=0.6283 migrations=10.0 reward=-72.037
+episode=034 update=batch=030-034 upper_loss=3.2769 lower_loss=0.1282 sla=0.6806 migrations=9.0 reward=-57.251
+  optimizer upper: actor=-0.2222 critic=6.9981 return=-4.223 +/-4.155 advantage_std=2.606 actor_grad=0.188 critic_grad=4.276 records=206
+  upper critic fit: value=-4.676 +/-3.780 rmse=2.645 corr=+0.788 EV=+0.607 post_rmse=2.229 post_EV=+0.713
+  optimizer lower: actor=-0.1830 critic=0.6223 return=-2.795 +/-0.945 advantage_std=0.741 actor_grad=0.018 critic_grad=0.680 records=110
+  lower critic fit: value=-2.524 +/-0.345 rmse=0.789 corr=+0.711 EV=+0.386 post_rmse=0.654 post_EV=+0.523
+  upper gate returns: keep n=119 r=-0.927 G=-3.819 | migrate n=87 r=-2.422 G=-4.775
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.487 future_sla=-0.440 failure=+0.000
+  upper migrate credited components: risk=-0.012 cost=-0.239 disruption=-0.397 sla=-0.822 future_sla=-0.433 failure=-0.519
+episode=035 update=pending sla=0.5031 migrations=9.0 reward=-81.942
+episode=036 update=pending sla=0.6166 migrations=5.0 reward=-48.139
+episode=037 update=pending sla=0.6237 migrations=11.0 reward=-56.962
+episode=038 update=pending sla=0.5684 migrations=12.0 reward=-63.037
+episode=039 update=batch=035-039 upper_loss=8.2714 lower_loss=1.4681 sla=0.6040 migrations=9.0 reward=-66.956
+  optimizer upper: actor=-0.2439 critic=17.0307 return=-4.945 +/-6.196 advantage_std=3.880 actor_grad=0.260 critic_grad=10.042 records=211
+  upper critic fit: value=-3.538 +/-3.293 rmse=4.127 corr=+0.838 EV=+0.608 post_rmse=3.174 post_EV=+0.739
+  optimizer lower: actor=+0.1181 critic=2.7000 return=-2.265 +/-1.559 advantage_std=1.551 actor_grad=0.024 critic_grad=0.842 records=116
+  lower critic fit: value=-2.807 +/-0.508 rmse=1.643 corr=+0.178 EV=+0.010 post_rmse=1.542 post_EV=+0.027
+  upper gate returns: keep n=111 r=-0.811 G=-4.038 | migrate n=100 r=-2.253 G=-5.952
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.432 future_sla=-0.378 failure=+0.000
+  upper migrate credited components: risk=-0.009 cost=-0.174 disruption=-0.346 sla=-0.708 future_sla=-0.485 failure=-0.531
+validation episode=040 sla=0.5927 component_risk=+0.00020 global_risk=+0.00000 sla_gain=+0.0000 keep=0.998 migrations=0.10 feasible=False
+episode=040 update=pending sla=0.6828 migrations=7.0 reward=-50.458
+episode=041 update=pending sla=0.5835 migrations=13.0 reward=-81.873
+episode=042 update=pending sla=0.5789 migrations=11.0 reward=-54.821
+episode=043 update=pending sla=0.7186 migrations=12.0 reward=-65.681
+episode=044 update=batch=040-044 upper_loss=5.5589 lower_loss=1.0159 sla=0.5846 migrations=10.0 reward=-75.841
+  optimizer upper: actor=-0.1161 critic=11.3502 return=-3.941 +/-4.172 advantage_std=3.020 actor_grad=0.201 critic_grad=5.964 records=209
+  upper critic fit: value=-5.434 +/-4.328 rmse=3.369 corr=+0.748 EV=+0.476 post_rmse=2.656 post_EV=+0.595
+  optimizer lower: actor=+0.0500 critic=1.9319 return=-2.608 +/-1.418 advantage_std=1.344 actor_grad=0.049 critic_grad=0.302 records=147
+  lower critic fit: value=-2.255 +/-0.416 rmse=1.390 corr=+0.320 EV=+0.102 post_rmse=1.339 post_EV=+0.112
+  upper gate returns: keep n=113 r=-0.841 G=-3.134 | migrate n=96 r=-2.410 G=-4.892
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.460 future_sla=-0.381 failure=+0.000
+  upper migrate credited components: risk=-0.018 cost=-0.240 disruption=-0.442 sla=-0.785 future_sla=-0.484 failure=-0.440
+episode=045 update=pending sla=0.6118 migrations=8.0 reward=-68.056
+episode=046 update=pending sla=0.5928 migrations=13.0 reward=-65.135
+episode=047 update=pending sla=0.5320 migrations=7.0 reward=-61.718
+episode=048 update=pending sla=0.6038 migrations=8.0 reward=-67.574
+episode=049 update=batch=045-049 upper_loss=4.5954 lower_loss=0.2368 sla=0.5871 migrations=13.0 reward=-74.690
+  optimizer upper: actor=-0.0970 critic=9.3848 return=-4.688 +/-5.164 advantage_std=3.024 actor_grad=0.189 critic_grad=6.814 records=219
+  upper critic fit: value=-4.198 +/-3.601 rmse=3.063 corr=+0.820 EV=+0.657 post_rmse=2.678 post_EV=+0.731
+  optimizer lower: actor=-0.1342 critic=0.7418 return=-2.945 +/-0.909 advantage_std=0.708 actor_grad=0.020 critic_grad=1.133 records=142
+  lower critic fit: value=-2.456 +/-0.385 rmse=0.861 corr=+0.676 EV=+0.393 post_rmse=0.677 post_EV=+0.461
+  upper gate returns: keep n=120 r=-0.767 G=-4.014 | migrate n=99 r=-2.459 G=-5.504
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.417 future_sla=-0.350 failure=+0.000
+  upper migrate credited components: risk=-0.004 cost=-0.224 disruption=-0.405 sla=-0.824 future_sla=-0.505 failure=-0.497
+validation episode=050 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=050 update=pending sla=0.5599 migrations=6.0 reward=-60.722
+episode=051 update=pending sla=0.5923 migrations=5.0 reward=-53.468
+episode=052 update=pending sla=0.6112 migrations=5.0 reward=-48.626
+episode=053 update=pending sla=0.5000 migrations=9.0 reward=-54.917
+episode=054 update=batch=050-054 upper_loss=3.9982 lower_loss=1.1747 sla=0.5042 migrations=7.0 reward=-50.104
+  optimizer upper: actor=-0.1297 critic=8.2559 return=-3.345 +/-3.895 advantage_std=2.798 actor_grad=0.204 critic_grad=5.674 records=210
+  upper critic fit: value=-3.998 +/-3.656 rmse=2.873 corr=+0.727 EV=+0.484 post_rmse=2.414 post_EV=+0.617
+  optimizer lower: actor=+0.0590 critic=2.2314 return=-2.708 +/-1.459 advantage_std=1.392 actor_grad=0.037 critic_grad=0.709 records=75
+  lower critic fit: value=-3.250 +/-0.539 rmse=1.494 corr=+0.306 EV=+0.090 post_rmse=1.377 post_EV=+0.109
+  upper gate returns: keep n=135 r=-0.721 G=-2.772 | migrate n=75 r=-2.251 G=-4.375
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.400 future_sla=-0.321 failure=+0.000
+  upper migrate credited components: risk=-0.040 cost=-0.181 disruption=-0.336 sla=-0.690 future_sla=-0.442 failure=-0.563
+episode=055 update=pending sla=0.6005 migrations=6.0 reward=-75.380
+episode=056 update=pending sla=0.6147 migrations=10.0 reward=-87.062
+episode=057 update=pending sla=0.5727 migrations=4.0 reward=-66.003
+episode=058 update=pending sla=0.6607 migrations=9.0 reward=-86.450
+episode=059 update=batch=055-059 upper_loss=7.0059 lower_loss=0.4700 sla=0.6452 migrations=10.0 reward=-62.427
+  optimizer upper: actor=-0.0668 critic=14.1455 return=-5.256 +/-5.299 advantage_std=3.577 actor_grad=0.110 critic_grad=3.087 records=219
+  upper critic fit: value=-4.095 +/-3.391 rmse=3.761 corr=+0.745 EV=+0.544 post_rmse=2.968 post_EV=+0.689
+  optimizer lower: actor=+0.1327 critic=0.6747 return=-2.744 +/-0.872 advantage_std=0.804 actor_grad=0.014 critic_grad=0.508 records=138
+  lower critic fit: value=-2.577 +/-0.409 rmse=0.821 corr=+0.394 EV=+0.150 post_rmse=0.785 post_EV=+0.191
+  upper gate returns: keep n=125 r=-1.000 G=-4.991 | migrate n=94 r=-2.659 G=-5.609
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.512 future_sla=-0.488 failure=+0.000
+  upper migrate credited components: risk=+0.003 cost=-0.201 disruption=-0.351 sla=-0.951 future_sla=-0.585 failure=-0.575
+validation episode=060 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=060 update=pending sla=0.6949 migrations=11.0 reward=-69.743
+episode=061 update=pending sla=0.6976 migrations=10.0 reward=-63.853
+episode=062 update=pending sla=0.7173 migrations=7.0 reward=-80.507
+episode=063 update=pending sla=0.6534 migrations=6.0 reward=-69.167
+episode=064 update=batch=060-064 upper_loss=5.5790 lower_loss=0.5803 sla=0.5813 migrations=7.0 reward=-77.214
+  optimizer upper: actor=-0.1314 critic=11.4209 return=-5.121 +/-5.622 advantage_std=3.328 actor_grad=0.112 critic_grad=10.286 records=214
+  upper critic fit: value=-4.534 +/-3.714 rmse=3.379 corr=+0.822 EV=+0.650 post_rmse=2.910 post_EV=+0.733
+  optimizer lower: actor=-0.0946 critic=1.3497 return=-2.696 +/-1.278 advantage_std=1.158 actor_grad=0.036 critic_grad=0.153 records=141
+  lower critic fit: value=-2.793 +/-0.352 rmse=1.162 corr=+0.465 EV=+0.180 post_rmse=1.118 post_EV=+0.235
+  upper gate returns: keep n=115 r=-1.048 G=-4.899 | migrate n=99 r=-2.403 G=-5.379
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.548 future_sla=-0.500 failure=+0.000
+  upper migrate credited components: risk=-0.048 cost=-0.207 disruption=-0.355 sla=-0.753 future_sla=-0.465 failure=-0.577
+episode=065 update=pending sla=0.6803 migrations=13.0 reward=-75.355
+episode=066 update=pending sla=0.6406 migrations=11.0 reward=-91.475
+episode=067 update=pending sla=0.6806 migrations=9.0 reward=-57.978
+episode=068 update=pending sla=0.5971 migrations=9.0 reward=-76.030
+episode=069 update=batch=065-069 upper_loss=3.0815 lower_loss=1.4974 sla=0.4801 migrations=6.0 reward=-59.863
+  optimizer upper: actor=-0.1412 critic=6.4454 return=-5.131 +/-5.478 advantage_std=2.525 actor_grad=0.239 critic_grad=10.286 records=210
+  upper critic fit: value=-5.398 +/-5.307 rmse=2.539 corr=+0.891 EV=+0.788 post_rmse=2.433 post_EV=+0.807
+  optimizer lower: actor=+0.1708 critic=2.6533 return=-2.632 +/-1.495 advantage_std=1.625 actor_grad=0.046 critic_grad=0.269 records=137
+  lower critic fit: value=-2.738 +/-0.730 rmse=1.629 corr=+0.058 EV=-0.182 post_rmse=1.465 post_EV=+0.040
+  upper gate returns: keep n=106 r=-0.918 G=-4.219 | migrate n=104 r=-2.512 G=-6.060
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.481 future_sla=-0.437 failure=+0.000
+  upper migrate credited components: risk=-0.004 cost=-0.210 disruption=-0.376 sla=-0.822 future_sla=-0.572 failure=-0.529
+validation episode=070 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=070 update=pending sla=0.5696 migrations=7.0 reward=-58.093
+episode=071 update=pending sla=0.5034 migrations=12.0 reward=-65.622
+episode=072 update=pending sla=0.6518 migrations=10.0 reward=-87.363
+episode=073 update=pending sla=0.5967 migrations=5.0 reward=-66.362
+episode=074 update=batch=070-074 upper_loss=4.2759 lower_loss=0.2555 sla=0.6171 migrations=6.0 reward=-77.828
+  optimizer upper: actor=-0.1027 critic=8.7574 return=-5.425 +/-5.952 advantage_std=2.958 actor_grad=0.100 critic_grad=7.087 records=223
+  upper critic fit: value=-5.334 +/-4.512 rmse=2.959 corr=+0.876 EV=+0.753 post_rmse=2.746 post_EV=+0.789
+  optimizer lower: actor=-0.1103 critic=0.7315 return=-2.703 +/-0.905 advantage_std=0.849 actor_grad=0.022 critic_grad=0.278 records=113
+  lower critic fit: value=-2.597 +/-0.214 rmse=0.855 corr=+0.372 EV=+0.120 post_rmse=0.841 post_EV=+0.136
+  upper gate returns: keep n=136 r=-1.000 G=-4.980 | migrate n=87 r=-2.498 G=-6.119
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.522 future_sla=-0.478 failure=+0.000
+  upper migrate credited components: risk=-0.012 cost=-0.209 disruption=-0.381 sla=-0.879 future_sla=-0.487 failure=-0.531
+episode=075 update=pending sla=0.6451 migrations=11.0 reward=-69.984
+episode=076 update=pending sla=0.6871 migrations=8.0 reward=-62.632
+episode=077 update=pending sla=0.6416 migrations=9.0 reward=-59.353
+episode=078 update=pending sla=0.6683 migrations=6.0 reward=-46.527
+episode=079 update=batch=075-079 upper_loss=3.9220 lower_loss=0.3237 sla=0.6029 migrations=9.0 reward=-71.925
+  optimizer upper: actor=-0.0656 critic=7.9753 return=-4.712 +/-5.348 advantage_std=2.824 actor_grad=0.098 critic_grad=4.381 records=221
+  upper critic fit: value=-4.741 +/-4.336 rmse=2.824 corr=+0.850 EV=+0.721 post_rmse=2.608 post_EV=+0.762
+  optimizer lower: actor=+0.0151 critic=0.6172 return=-2.747 +/-0.899 advantage_std=0.785 actor_grad=0.020 critic_grad=0.129 records=111
+  lower critic fit: value=-2.715 +/-0.337 rmse=0.786 corr=+0.504 EV=+0.237 post_rmse=0.771 post_EV=+0.265
+  upper gate returns: keep n=125 r=-0.864 G=-4.429 | migrate n=96 r=-2.090 G=-5.081
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.448 future_sla=-0.416 failure=+0.000
+  upper migrate credited components: risk=+0.012 cost=-0.217 disruption=-0.366 sla=-0.601 future_sla=-0.375 failure=-0.543
+validation episode=080 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=080 update=pending sla=0.5846 migrations=12.0 reward=-72.138
+episode=081 update=pending sla=0.6557 migrations=8.0 reward=-65.455
+episode=082 update=pending sla=0.5939 migrations=12.0 reward=-76.445
+episode=083 update=pending sla=0.6053 migrations=6.0 reward=-74.326
+episode=084 update=batch=080-084 upper_loss=3.2017 lower_loss=0.0625 sla=0.6835 migrations=13.0 reward=-76.424
+  optimizer upper: actor=-0.2275 critic=6.8585 return=-4.518 +/-4.408 advantage_std=2.614 actor_grad=0.292 critic_grad=6.681 records=205
+  upper critic fit: value=-4.683 +/-4.784 rmse=2.619 corr=+0.841 EV=+0.648 post_rmse=2.177 post_EV=+0.757
+  optimizer lower: actor=-0.1372 critic=0.3993 return=-2.838 +/-0.776 advantage_std=0.621 actor_grad=0.017 critic_grad=0.142 records=163
+  lower critic fit: value=-2.722 +/-0.326 rmse=0.632 corr=+0.639 EV=+0.360 post_rmse=0.580 post_EV=+0.443
+  upper gate returns: keep n=99 r=-0.899 G=-3.899 | migrate n=106 r=-2.577 G=-5.096
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.475 future_sla=-0.424 failure=+0.000
+  upper migrate credited components: risk=-0.058 cost=-0.233 disruption=-0.405 sla=-0.861 future_sla=-0.509 failure=-0.510
+episode=085 update=pending sla=0.6325 migrations=10.0 reward=-72.707
+episode=086 update=pending sla=0.7256 migrations=12.0 reward=-76.288
+episode=087 update=pending sla=0.5780 migrations=8.0 reward=-68.823
+episode=088 update=pending sla=0.5362 migrations=7.0 reward=-68.788
+episode=089 update=batch=085-089 upper_loss=3.7126 lower_loss=0.4586 sla=0.5702 migrations=10.0 reward=-76.271
+  optimizer upper: actor=-0.1548 critic=7.7347 return=-5.531 +/-6.079 advantage_std=2.767 actor_grad=0.147 critic_grad=11.358 records=213
+  upper critic fit: value=-5.250 +/-4.830 rmse=2.781 corr=+0.896 EV=+0.793 post_rmse=2.473 post_EV=+0.835
+  optimizer lower: actor=+0.1642 critic=0.5889 return=-2.660 +/-0.744 advantage_std=0.724 actor_grad=0.027 critic_grad=0.610 records=142
+  lower critic fit: value=-2.913 +/-0.455 rmse=0.767 corr=+0.348 EV=+0.051 post_rmse=0.696 post_EV=+0.135
+  upper gate returns: keep n=118 r=-1.017 G=-5.129 | migrate n=95 r=-2.533 G=-6.030
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.525 future_sla=-0.492 failure=+0.000
+  upper migrate credited components: risk=+0.003 cost=-0.224 disruption=-0.406 sla=-0.899 future_sla=-0.512 failure=-0.496
+validation episode=090 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=090 update=pending sla=0.5939 migrations=13.0 reward=-78.284
+episode=091 update=pending sla=0.6451 migrations=5.0 reward=-49.309
+episode=092 update=pending sla=0.6635 migrations=11.0 reward=-93.133
+episode=093 update=pending sla=0.5748 migrations=8.0 reward=-52.848
+episode=094 update=batch=090-094 upper_loss=6.1546 lower_loss=1.0591 sla=0.6561 migrations=8.0 reward=-66.927
+  optimizer upper: actor=-0.0531 critic=12.4154 return=-5.124 +/-5.991 advantage_std=3.523 actor_grad=0.097 critic_grad=5.050 records=218
+  upper critic fit: value=-5.045 +/-4.569 rmse=3.524 corr=+0.810 EV=+0.654 post_rmse=3.259 post_EV=+0.704
+  optimizer lower: actor=-0.0029 critic=2.1240 return=-2.872 +/-1.547 advantage_std=1.457 actor_grad=0.026 critic_grad=0.195 records=116
+  lower critic fit: value=-2.839 +/-0.338 rmse=1.457 corr=+0.367 EV=+0.113 post_rmse=1.424 post_EV=+0.153
+  upper gate returns: keep n=126 r=-0.833 G=-4.148 | migrate n=92 r=-2.541 G=-6.461
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.444 future_sla=-0.389 failure=+0.000
+  upper migrate credited components: risk=-0.014 cost=-0.185 disruption=-0.371 sla=-0.897 future_sla=-0.571 failure=-0.503
+episode=095 update=pending sla=0.5350 migrations=8.0 reward=-59.236
+episode=096 update=pending sla=0.5634 migrations=7.0 reward=-71.728
+episode=097 update=pending sla=0.6395 migrations=5.0 reward=-49.260
+episode=098 update=pending sla=0.5615 migrations=7.0 reward=-65.181
+episode=099 update=batch=095-099 upper_loss=5.0140 lower_loss=0.2031 sla=0.6026 migrations=12.0 reward=-84.007
+  optimizer upper: actor=-0.0967 critic=10.2214 return=-4.831 +/-5.049 advantage_std=3.191 actor_grad=0.116 critic_grad=2.377 records=209
+  upper critic fit: value=-4.630 +/-5.033 rmse=3.197 corr=+0.800 EV=+0.601 post_rmse=2.815 post_EV=+0.689
+  optimizer lower: actor=-0.0466 critic=0.4993 return=-2.602 +/-0.850 advantage_std=0.706 actor_grad=0.013 critic_grad=0.042 records=128
+  lower critic fit: value=-2.636 +/-0.382 rmse=0.707 corr=+0.571 EV=+0.311 post_rmse=0.688 post_EV=+0.345
+  upper gate returns: keep n=120 r=-1.033 G=-4.776 | migrate n=89 r=-2.288 G=-4.905
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.533 future_sla=-0.500 failure=+0.000
+  upper migrate credited components: risk=+0.009 cost=-0.219 disruption=-0.372 sla=-0.726 future_sla=-0.427 failure=-0.552
+validation episode=100 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=100 update=pending sla=0.6175 migrations=3.0 reward=-58.661
+episode=101 update=pending sla=0.6122 migrations=10.0 reward=-67.972
+episode=102 update=pending sla=0.5864 migrations=16.0 reward=-72.614
+episode=103 update=pending sla=0.5212 migrations=7.0 reward=-75.417
+episode=104 update=batch=100-104 upper_loss=4.2111 lower_loss=0.6666 sla=0.6472 migrations=10.0 reward=-62.790
+  optimizer upper: actor=-0.1671 critic=8.7566 return=-4.275 +/-4.707 advantage_std=2.900 actor_grad=0.231 critic_grad=14.547 records=209
+  upper critic fit: value=-4.862 +/-4.669 rmse=2.959 corr=+0.809 EV=+0.620 post_rmse=2.483 post_EV=+0.723
+  optimizer lower: actor=+0.0300 critic=1.2731 return=-2.765 +/-1.184 advantage_std=1.124 actor_grad=0.018 critic_grad=0.239 records=128
+  lower critic fit: value=-2.866 +/-0.510 rmse=1.128 corr=+0.331 EV=+0.100 post_rmse=1.105 post_EV=+0.129
+  upper gate returns: keep n=113 r=-0.873 G=-3.722 | migrate n=96 r=-2.464 G=-4.926
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.469 future_sla=-0.404 failure=+0.000
+  upper migrate credited components: risk=-0.048 cost=-0.203 disruption=-0.375 sla=-0.828 future_sla=-0.498 failure=-0.512
+episode=105 update=pending sla=0.6562 migrations=5.0 reward=-69.488
+episode=106 update=pending sla=0.6204 migrations=9.0 reward=-67.913
+episode=107 update=pending sla=0.5996 migrations=6.0 reward=-56.302
+episode=108 update=pending sla=0.6803 migrations=8.0 reward=-65.099
+episode=109 update=batch=105-109 upper_loss=3.8080 lower_loss=0.4859 sla=0.6116 migrations=11.0 reward=-77.885
+  optimizer upper: actor=-0.2034 critic=8.0227 return=-4.654 +/-5.240 advantage_std=2.767 actor_grad=0.194 critic_grad=8.623 records=210
+  upper critic fit: value=-4.048 +/-3.855 rmse=2.832 corr=+0.858 EV=+0.721 post_rmse=2.489 post_EV=+0.777
+  optimizer lower: actor=+0.0532 critic=0.8653 return=-2.582 +/-0.966 advantage_std=0.929 actor_grad=0.017 critic_grad=0.137 records=126
+  lower critic fit: value=-2.537 +/-0.413 rmse=0.930 corr=+0.301 EV=+0.075 post_rmse=0.916 post_EV=+0.102
+  upper gate returns: keep n=124 r=-1.042 G=-4.307 | migrate n=86 r=-2.393 G=-5.153
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.540 future_sla=-0.501 failure=+0.000
+  upper migrate credited components: risk=-0.008 cost=-0.221 disruption=-0.380 sla=-0.774 future_sla=-0.473 failure=-0.537
+validation episode=110 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=110 update=pending sla=0.6454 migrations=4.0 reward=-67.672
+episode=111 update=pending sla=0.6183 migrations=11.0 reward=-66.700
+episode=112 update=pending sla=0.6972 migrations=11.0 reward=-98.280
+episode=113 update=pending sla=0.6250 migrations=6.0 reward=-86.222
+episode=114 update=batch=110-114 upper_loss=13.2760 lower_loss=1.9257 sla=0.6152 migrations=3.0 reward=-51.627
+  optimizer upper: actor=-0.1911 critic=26.9342 return=-5.774 +/-6.778 advantage_std=5.103 actor_grad=0.203 critic_grad=5.900 records=214
+  upper critic fit: value=-4.827 +/-4.119 rmse=5.190 corr=+0.660 EV=+0.433 post_rmse=4.720 post_EV=+0.516
+  optimizer lower: actor=+0.1807 critic=3.4901 return=-2.429 +/-1.807 advantage_std=1.857 actor_grad=0.036 critic_grad=0.297 records=123
+  lower critic fit: value=-2.637 +/-0.283 rmse=1.868 corr=-0.099 EV=-0.055 post_rmse=1.700 post_EV=+0.116
+  upper gate returns: keep n=123 r=-1.081 G=-5.315 | migrate n=91 r=-2.586 G=-6.395
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.569 future_sla=-0.512 failure=+0.000
+  upper migrate credited components: risk=-0.087 cost=-0.188 disruption=-0.320 sla=-0.852 future_sla=-0.535 failure=-0.604
+episode=115 update=pending sla=0.6178 migrations=5.0 reward=-52.429
+episode=116 update=pending sla=0.7029 migrations=8.0 reward=-78.918
+episode=117 update=pending sla=0.5705 migrations=8.0 reward=-73.102
+episode=118 update=pending sla=0.5996 migrations=5.0 reward=-64.260
+episode=119 update=batch=115-119 upper_loss=4.8789 lower_loss=0.6145 sla=0.5853 migrations=9.0 reward=-51.286
+  optimizer upper: actor=-0.0912 critic=9.9402 return=-5.610 +/-6.043 advantage_std=2.941 actor_grad=0.137 critic_grad=9.241 records=223
+  upper critic fit: value=-6.745 +/-5.004 rmse=3.153 corr=+0.875 EV=+0.763 post_rmse=2.374 post_EV=+0.846
+  optimizer lower: actor=-0.0480 critic=1.3250 return=-3.067 +/-1.079 advantage_std=1.002 actor_grad=0.030 critic_grad=0.223 records=99
+  lower critic fit: value=-2.500 +/-0.235 rmse=1.151 corr=+0.427 EV=+0.138 post_rmse=0.998 post_EV=+0.162
+  upper gate returns: keep n=143 r=-0.895 G=-5.576 | migrate n=80 r=-2.377 G=-5.671
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.455 future_sla=-0.441 failure=+0.000
+  upper migrate credited components: risk=-0.014 cost=-0.196 disruption=-0.358 sla=-0.818 future_sla=-0.438 failure=-0.553
+validation episode=120 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=120 update=pending sla=0.6195 migrations=5.0 reward=-60.649
+episode=121 update=pending sla=0.6356 migrations=12.0 reward=-75.016
+episode=122 update=pending sla=0.6244 migrations=6.0 reward=-59.318
+episode=123 update=pending sla=0.7100 migrations=7.0 reward=-58.225
+episode=124 update=batch=120-124 upper_loss=3.7827 lower_loss=0.3998 sla=0.5386 migrations=7.0 reward=-39.522
+  optimizer upper: actor=-0.1063 critic=7.7779 return=-4.392 +/-6.350 advantage_std=2.741 actor_grad=0.149 critic_grad=2.921 records=213
+  upper critic fit: value=-3.879 +/-5.398 rmse=2.789 corr=+0.904 EV=+0.814 post_rmse=2.213 post_EV=+0.880
+  optimizer lower: actor=-0.2892 critic=1.3782 return=-2.824 +/-1.181 advantage_std=1.169 actor_grad=0.053 critic_grad=0.496 records=97
+  lower critic fit: value=-2.930 +/-0.376 rmse=1.174 corr=+0.190 EV=+0.020 post_rmse=1.079 post_EV=+0.167
+  upper gate returns: keep n=128 r=-0.672 G=-3.431 | migrate n=85 r=-2.409 G=-5.838
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.352 future_sla=-0.320 failure=+0.000
+  upper migrate credited components: risk=-0.015 cost=-0.174 disruption=-0.331 sla=-0.840 future_sla=-0.494 failure=-0.555
+episode=125 update=pending sla=0.4868 migrations=12.0 reward=-79.018
+episode=126 update=pending sla=0.7102 migrations=3.0 reward=-57.744
+episode=127 update=pending sla=0.7329 migrations=10.0 reward=-68.027
+episode=128 update=pending sla=0.5493 migrations=10.0 reward=-48.992
+episode=129 update=batch=125-129 upper_loss=3.4411 lower_loss=1.1491 sla=0.5983 migrations=8.0 reward=-82.800
+  optimizer upper: actor=-0.2389 critic=7.3600 return=-4.668 +/-5.146 advantage_std=2.709 actor_grad=0.271 critic_grad=13.548 records=207
+  upper critic fit: value=-4.822 +/-4.611 rmse=2.713 corr=+0.851 EV=+0.723 post_rmse=2.539 post_EV=+0.759
+  optimizer lower: actor=-0.0053 critic=2.3088 return=-2.479 +/-1.644 advantage_std=1.517 actor_grad=0.013 critic_grad=0.470 records=131
+  lower critic fit: value=-2.568 +/-0.353 rmse=1.519 corr=+0.454 EV=+0.149 post_rmse=1.457 post_EV=+0.214
+  upper gate returns: keep n=126 r=-1.024 G=-3.739 | migrate n=81 r=-2.541 G=-6.114
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.540 future_sla=-0.484 failure=+0.000
+  upper migrate credited components: risk=-0.020 cost=-0.239 disruption=-0.434 sla=-0.846 future_sla=-0.541 failure=-0.461
+validation episode=130 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=130 update=pending sla=0.5066 migrations=6.0 reward=-55.713
+episode=131 update=pending sla=0.6538 migrations=4.0 reward=-65.910
+episode=132 update=pending sla=0.5624 migrations=8.0 reward=-55.489
+episode=133 update=pending sla=0.7264 migrations=5.0 reward=-65.925
+episode=134 update=batch=130-134 upper_loss=4.7100 lower_loss=1.4446 sla=0.5888 migrations=4.0 reward=-70.031
+  optimizer upper: actor=-0.1069 critic=9.6338 return=-4.972 +/-5.612 advantage_std=3.078 actor_grad=0.177 critic_grad=2.540 records=208
+  upper critic fit: value=-4.573 +/-4.660 rmse=3.104 corr=+0.836 EV=+0.699 post_rmse=2.692 post_EV=+0.770
+  optimizer lower: actor=+0.0312 critic=2.8268 return=-2.784 +/-1.569 advantage_std=1.681 actor_grad=0.080 critic_grad=0.277 records=82
+  lower critic fit: value=-2.783 +/-0.621 rmse=1.681 corr=+0.011 EV=-0.148 post_rmse=1.578 post_EV=-0.011
+  upper gate returns: keep n=133 r=-1.001 G=-4.751 | migrate n=75 r=-2.377 G=-5.363
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.534 future_sla=-0.467 failure=+0.000
+  upper migrate credited components: risk=-0.049 cost=-0.145 disruption=-0.282 sla=-0.782 future_sla=-0.489 failure=-0.630
+episode=135 update=pending sla=0.7043 migrations=11.0 reward=-57.227
+episode=136 update=pending sla=0.6497 migrations=6.0 reward=-50.128
+episode=137 update=pending sla=0.6724 migrations=9.0 reward=-65.445
+episode=138 update=pending sla=0.5012 migrations=8.0 reward=-56.525
+episode=139 update=batch=135-139 upper_loss=4.4704 lower_loss=0.2039 sla=0.5529 migrations=7.0 reward=-56.892
+  optimizer upper: actor=-0.1388 critic=9.2183 return=-4.006 +/-4.276 advantage_std=2.893 actor_grad=0.119 critic_grad=5.291 records=210
+  upper critic fit: value=-3.085 +/-3.530 rmse=3.036 corr=+0.741 EV=+0.542 post_rmse=2.546 post_EV=+0.645
+  optimizer lower: actor=-0.1829 critic=0.7735 return=-2.553 +/-0.943 advantage_std=0.866 actor_grad=0.027 critic_grad=0.296 records=81
+  lower critic fit: value=-2.707 +/-0.315 rmse=0.879 corr=+0.403 EV=+0.158 post_rmse=0.818 post_EV=+0.249
+  upper gate returns: keep n=127 r=-0.906 G=-3.746 | migrate n=83 r=-2.042 G=-4.404
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.480 future_sla=-0.425 failure=+0.000
+  upper migrate credited components: risk=-0.006 cost=-0.239 disruption=-0.399 sla=-0.574 future_sla=-0.325 failure=-0.498
+validation episode=140 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=140 update=pending sla=0.5694 migrations=9.0 reward=-54.002
+episode=141 update=pending sla=0.5577 migrations=9.0 reward=-62.479
+episode=142 update=pending sla=0.5922 migrations=7.0 reward=-66.704
+episode=143 update=pending sla=0.6651 migrations=9.0 reward=-74.771
+episode=144 update=batch=140-144 upper_loss=4.6997 lower_loss=0.9154 sla=0.7153 migrations=2.0 reward=-53.955
+  optimizer upper: actor=-0.2002 critic=9.7998 return=-4.756 +/-5.685 advantage_std=3.126 actor_grad=0.181 critic_grad=4.644 records=212
+  upper critic fit: value=-4.918 +/-4.351 rmse=3.130 corr=+0.838 EV=+0.698 post_rmse=2.535 post_EV=+0.801
+  optimizer lower: actor=+0.0603 critic=1.7102 return=-2.409 +/-1.371 advantage_std=1.292 actor_grad=0.057 critic_grad=0.423 records=83
+  lower critic fit: value=-2.610 +/-0.435 rmse=1.308 corr=+0.335 EV=+0.112 post_rmse=1.240 post_EV=+0.186
+  upper gate returns: keep n=138 r=-0.971 G=-4.285 | migrate n=74 r=-2.379 G=-5.636
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.507 future_sla=-0.464 failure=+0.000
+  upper migrate credited components: risk=+0.017 cost=-0.194 disruption=-0.366 sla=-0.845 future_sla=-0.486 failure=-0.505
+episode=145 update=pending sla=0.6200 migrations=4.0 reward=-53.905
+episode=146 update=pending sla=0.7098 migrations=6.0 reward=-75.059
+episode=147 update=pending sla=0.6264 migrations=7.0 reward=-79.869
+episode=148 update=pending sla=0.6717 migrations=9.0 reward=-73.416
+episode=149 update=batch=145-149 upper_loss=4.6074 lower_loss=0.7970 sla=0.7085 migrations=7.0 reward=-43.582
+  optimizer upper: actor=-0.1040 critic=9.4229 return=-5.141 +/-5.825 advantage_std=3.069 actor_grad=0.154 critic_grad=4.437 records=206
+  upper critic fit: value=-5.099 +/-5.104 rmse=3.070 corr=+0.850 EV=+0.722 post_rmse=2.706 post_EV=+0.785
+  optimizer lower: actor=+0.1074 critic=1.3793 return=-2.613 +/-1.166 advantage_std=1.173 actor_grad=0.027 critic_grad=0.052 records=103
+  lower critic fit: value=-2.564 +/-0.474 rmse=1.174 corr=+0.188 EV=-0.012 post_rmse=1.143 post_EV=+0.040
+  upper gate returns: keep n=128 r=-1.074 G=-4.531 | migrate n=78 r=-2.395 G=-6.142
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.578 future_sla=-0.496 failure=+0.000
+  upper migrate credited components: risk=-0.017 cost=-0.190 disruption=-0.336 sla=-0.740 future_sla=-0.545 failure=-0.567
+validation episode=150 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=150 update=pending sla=0.6959 migrations=6.0 reward=-78.212
+episode=151 update=pending sla=0.5212 migrations=9.0 reward=-68.101
+episode=152 update=pending sla=0.5679 migrations=8.0 reward=-55.721
+episode=153 update=pending sla=0.6075 migrations=6.0 reward=-49.439
+episode=154 update=batch=150-154 upper_loss=7.1320 lower_loss=0.2803 sla=0.6964 migrations=7.0 reward=-72.809
+  optimizer upper: actor=+0.1320 critic=14.0001 return=-6.045 +/-7.092 advantage_std=3.705 actor_grad=0.292 critic_grad=5.976 records=207
+  upper critic fit: value=-5.519 +/-5.392 rmse=3.742 corr=+0.858 EV=+0.727 post_rmse=3.355 post_EV=+0.776
+  optimizer lower: actor=-0.0091 critic=0.5789 return=-2.822 +/-0.757 advantage_std=0.731 actor_grad=0.030 critic_grad=0.207 records=59
+  lower critic fit: value=-2.609 +/-0.273 rmse=0.761 corr=+0.277 EV=+0.070 post_rmse=0.721 post_EV=+0.095
+  upper gate returns: keep n=138 r=-1.116 G=-6.443 | migrate n=69 r=-2.448 G=-5.247
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.572 future_sla=-0.543 failure=+0.000
+  upper migrate credited components: risk=+0.009 cost=-0.132 disruption=-0.343 sla=-0.965 future_sla=-0.546 failure=-0.471
+episode=155 update=pending sla=0.5707 migrations=11.0 reward=-63.310
+episode=156 update=pending sla=0.6269 migrations=11.0 reward=-50.209
+episode=157 update=pending sla=0.6304 migrations=9.0 reward=-64.756
+episode=158 update=pending sla=0.5717 migrations=10.0 reward=-63.596
+episode=159 update=batch=155-159 upper_loss=4.8542 lower_loss=0.6892 sla=0.6563 migrations=7.0 reward=-58.041
+  optimizer upper: actor=-0.1238 critic=9.9559 return=-4.140 +/-4.635 advantage_std=3.072 actor_grad=0.091 critic_grad=14.113 records=208
+  upper critic fit: value=-3.421 +/-3.547 rmse=3.155 corr=+0.749 EV=+0.561 post_rmse=2.731 post_EV=+0.658
+  optimizer lower: actor=-0.0443 critic=1.4670 return=-2.322 +/-1.168 advantage_std=1.149 actor_grad=0.033 critic_grad=0.417 records=95
+  lower critic fit: value=-2.704 +/-0.410 rmse=1.211 corr=+0.222 EV=+0.032 post_rmse=1.110 post_EV=+0.098
+  upper gate returns: keep n=122 r=-0.861 G=-4.049 | migrate n=86 r=-2.245 G=-4.270
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.443 future_sla=-0.418 failure=+0.000
+  upper migrate credited components: risk=-0.015 cost=-0.236 disruption=-0.436 sla=-0.693 future_sla=-0.430 failure=-0.434
+validation episode=160 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=160 update=pending sla=0.4860 migrations=4.0 reward=-68.743
+episode=161 update=pending sla=0.6185 migrations=7.0 reward=-52.545
+episode=162 update=pending sla=0.5502 migrations=10.0 reward=-54.602
+episode=163 update=pending sla=0.7066 migrations=6.0 reward=-56.300
+episode=164 update=batch=160-164 upper_loss=7.1823 lower_loss=0.9280 sla=0.5521 migrations=5.0 reward=-73.494
+  optimizer upper: actor=-0.1856 critic=14.7357 return=-4.134 +/-5.217 advantage_std=3.392 actor_grad=0.237 critic_grad=22.408 records=223
+  upper critic fit: value=-5.932 +/-5.745 rmse=3.839 corr=+0.813 EV=+0.577 post_rmse=2.905 post_EV=+0.694
+  optimizer lower: actor=-0.1039 critic=2.0638 return=-2.368 +/-1.532 advantage_std=1.435 actor_grad=0.018 critic_grad=0.237 records=90
+  lower critic fit: value=-2.428 +/-0.318 rmse=1.437 corr=+0.399 EV=+0.123 post_rmse=1.410 post_EV=+0.154
+  upper gate returns: keep n=148 r=-0.971 G=-3.500 | migrate n=75 r=-2.136 G=-5.385
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.514 future_sla=-0.457 failure=+0.000
+  upper migrate credited components: risk=+0.034 cost=-0.215 disruption=-0.349 sla=-0.622 future_sla=-0.422 failure=-0.561
+episode=165 update=pending sla=0.5973 migrations=8.0 reward=-59.130
+episode=166 update=pending sla=0.5729 migrations=13.0 reward=-58.817
+episode=167 update=pending sla=0.6333 migrations=8.0 reward=-65.139
+episode=168 update=pending sla=0.5482 migrations=7.0 reward=-43.985
+episode=169 update=batch=165-169 upper_loss=4.4098 lower_loss=0.5514 sla=0.5290 migrations=12.0 reward=-74.236
+  optimizer upper: actor=-0.2456 critic=9.3108 return=-4.415 +/-5.783 advantage_std=3.009 actor_grad=0.250 critic_grad=26.247 records=217
+  upper critic fit: value=-3.908 +/-4.090 rmse=3.051 corr=+0.869 EV=+0.729 post_rmse=2.776 post_EV=+0.781
+  optimizer lower: actor=-0.0018 critic=1.1063 return=-2.386 +/-1.167 advantage_std=1.050 actor_grad=0.049 critic_grad=0.201 records=100
+  lower critic fit: value=-2.320 +/-0.469 rmse=1.052 corr=+0.438 EV=+0.191 post_rmse=1.041 post_EV=+0.205
+  upper gate returns: keep n=146 r=-0.731 G=-3.742 | migrate n=71 r=-2.717 G=-5.799
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.390 future_sla=-0.340 failure=+0.000
+  upper migrate credited components: risk=-0.040 cost=-0.314 disruption=-0.535 sla=-0.937 future_sla=-0.573 failure=-0.318
+validation episode=170 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=170 update=pending sla=0.7041 migrations=6.0 reward=-60.610
+episode=171 update=pending sla=0.7018 migrations=8.0 reward=-74.918
+episode=172 update=pending sla=0.6269 migrations=6.0 reward=-51.342
+episode=173 update=pending sla=0.6193 migrations=8.0 reward=-75.325
+episode=174 update=batch=170-174 upper_loss=7.0214 lower_loss=1.3753 sla=0.6930 migrations=11.0 reward=-69.394
+  optimizer upper: actor=-0.0273 critic=14.0973 return=-5.825 +/-6.287 advantage_std=3.341 actor_grad=0.103 critic_grad=3.287 records=207
+  upper critic fit: value=-4.113 +/-4.712 rmse=3.755 corr=+0.853 EV=+0.717 post_rmse=3.008 post_EV=+0.771
+  optimizer lower: actor=+0.3339 critic=2.0828 return=-2.983 +/-1.264 advantage_std=1.324 actor_grad=0.062 critic_grad=1.120 records=91
+  lower critic fit: value=-2.409 +/-0.524 rmse=1.443 corr=+0.090 EV=-0.097 post_rmse=1.256 post_EV=+0.016
+  upper gate returns: keep n=130 r=-1.062 G=-5.940 | migrate n=77 r=-2.495 G=-5.632
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.554 future_sla=-0.508 failure=+0.000
+  upper migrate credited components: risk=-0.006 cost=-0.215 disruption=-0.398 sla=-0.813 future_sla=-0.576 failure=-0.486
+episode=175 update=pending sla=0.5671 migrations=8.0 reward=-66.612
+episode=176 update=pending sla=0.6493 migrations=5.0 reward=-58.918
+episode=177 update=pending sla=0.5616 migrations=7.0 reward=-51.290
+episode=178 update=pending sla=0.6256 migrations=7.0 reward=-53.997
+episode=179 update=batch=175-179 upper_loss=3.4534 lower_loss=0.6056 sla=0.6659 migrations=8.0 reward=-57.765
+  optimizer upper: actor=-0.1050 critic=7.1169 return=-4.050 +/-5.241 advantage_std=2.625 actor_grad=0.184 critic_grad=2.805 records=213
+  upper critic fit: value=-4.525 +/-4.554 rmse=2.668 corr=+0.866 EV=+0.749 post_rmse=2.259 post_EV=+0.815
+  optimizer lower: actor=+0.1090 critic=0.9931 return=-2.657 +/-0.929 advantage_std=0.940 actor_grad=0.018 critic_grad=0.093 records=102
+  lower critic fit: value=-2.988 +/-0.218 rmse=0.997 corr=+0.066 EV=-0.024 post_rmse=0.917 post_EV=+0.032
+  upper gate returns: keep n=142 r=-0.824 G=-3.246 | migrate n=71 r=-2.397 G=-5.657
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.430 future_sla=-0.394 failure=+0.000
+  upper migrate credited components: risk=+0.004 cost=-0.214 disruption=-0.399 sla=-0.756 future_sla=-0.535 failure=-0.497
+validation episode=180 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=180 update=pending sla=0.5681 migrations=11.0 reward=-62.859
+episode=181 update=pending sla=0.6964 migrations=11.0 reward=-65.571
+episode=182 update=pending sla=0.6819 migrations=4.0 reward=-58.118
+episode=183 update=pending sla=0.5844 migrations=7.0 reward=-42.888
+episode=184 update=batch=180-184 upper_loss=2.7254 lower_loss=1.0870 sla=0.7179 migrations=6.0 reward=-55.950
+  optimizer upper: actor=-0.1131 critic=5.6770 return=-3.773 +/-4.639 advantage_std=2.364 actor_grad=0.135 critic_grad=8.004 records=224
+  upper critic fit: value=-4.072 +/-4.401 rmse=2.383 corr=+0.865 EV=+0.740 post_rmse=2.054 post_EV=+0.804
+  optimizer lower: actor=-0.1136 critic=2.4014 return=-2.567 +/-1.574 advantage_std=1.543 actor_grad=0.115 critic_grad=0.176 records=78
+  lower critic fit: value=-2.713 +/-0.234 rmse=1.550 corr=+0.205 EV=+0.039 post_rmse=1.529 post_EV=+0.056
+  upper gate returns: keep n=145 r=-0.772 G=-3.710 | migrate n=79 r=-2.173 G=-3.888
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.407 future_sla=-0.366 failure=+0.000
+  upper migrate credited components: risk=-0.063 cost=-0.210 disruption=-0.381 sla=-0.629 future_sla=-0.392 failure=-0.497
+episode=185 update=pending sla=0.5281 migrations=8.0 reward=-56.693
+episode=186 update=pending sla=0.6177 migrations=11.0 reward=-72.592
+episode=187 update=pending sla=0.6016 migrations=5.0 reward=-52.823
+episode=188 update=pending sla=0.5213 migrations=11.0 reward=-54.512
+episode=189 update=batch=185-189 upper_loss=9.9673 lower_loss=1.2998 sla=0.6896 migrations=4.0 reward=-73.838
+  optimizer upper: actor=-0.1735 critic=20.2816 return=-5.206 +/-6.057 advantage_std=4.241 actor_grad=0.204 critic_grad=6.196 records=213
+  upper critic fit: value=-3.690 +/-4.110 rmse=4.504 corr=+0.715 EV=+0.510 post_rmse=3.359 post_EV=+0.693
+  optimizer lower: actor=-0.0695 critic=2.7388 return=-2.794 +/-1.691 advantage_std=1.652 actor_grad=0.061 critic_grad=0.288 records=87
+  lower critic fit: value=-2.702 +/-0.237 rmse=1.655 corr=+0.229 EV=+0.045 post_rmse=1.626 post_EV=+0.074
+  upper gate returns: keep n=136 r=-0.974 G=-4.782 | migrate n=77 r=-2.294 G=-5.954
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.515 future_sla=-0.460 failure=+0.000
+  upper migrate credited components: risk=-0.018 cost=-0.210 disruption=-0.386 sla=-0.712 future_sla=-0.483 failure=-0.484
+validation episode=190 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
+episode=190 update=pending sla=0.6394 migrations=6.0 reward=-61.540
+episode=191 update=pending sla=0.6979 migrations=8.0 reward=-65.638
+episode=192 update=pending sla=0.7254 migrations=5.0 reward=-56.102
+episode=193 update=pending sla=0.7443 migrations=7.0 reward=-89.902
+episode=194 update=batch=190-194 upper_loss=4.8435 lower_loss=1.8167 sla=0.7180 migrations=4.0 reward=-66.171
+  optimizer upper: actor=-0.1005 critic=9.8880 return=-6.074 +/-6.943 advantage_std=3.144 actor_grad=0.116 critic_grad=3.681 records=220
+  upper critic fit: value=-6.006 +/-5.524 rmse=3.145 corr=+0.897 EV=+0.795 post_rmse=2.751 post_EV=+0.845
+  optimizer lower: actor=+0.0500 critic=3.5335 return=-2.076 +/-1.780 advantage_std=1.761 actor_grad=0.043 critic_grad=0.203 records=66
+  lower critic fit: value=-2.734 +/-0.411 rmse=1.880 corr=+0.163 EV=+0.022 post_rmse=1.761 post_EV=+0.027
+  upper gate returns: keep n=143 r=-1.112 G=-6.173 | migrate n=77 r=-2.324 G=-5.890
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.566 future_sla=-0.545 failure=+0.000
+  upper migrate credited components: risk=+0.028 cost=-0.150 disruption=-0.288 sla=-0.750 future_sla=-0.563 failure=-0.601
+episode=195 update=pending sla=0.6626 migrations=6.0 reward=-83.232
+episode=196 update=pending sla=0.6698 migrations=5.0 reward=-70.514
+episode=197 update=pending sla=0.6387 migrations=5.0 reward=-51.925
+episode=198 update=pending sla=0.4530 migrations=5.0 reward=-40.951
+episode=199 update=batch=195-199 upper_loss=8.2617 lower_loss=1.5356 sla=0.5768 migrations=7.0 reward=-64.977
+  optimizer upper: actor=-0.1876 critic=16.8986 return=-5.638 +/-6.467 advantage_std=4.084 actor_grad=0.189 critic_grad=5.776 records=207
+  upper critic fit: value=-5.173 +/-4.969 rmse=4.111 corr=+0.775 EV=+0.601 post_rmse=3.460 post_EV=+0.714
+  optimizer lower: actor=+0.3187 critic=2.4338 return=-2.742 +/-1.248 advantage_std=1.375 actor_grad=0.070 critic_grad=1.415 records=79
+  lower critic fit: value=-2.005 +/-0.338 rmse=1.560 corr=-0.261 EV=-0.215 post_rmse=1.292 post_EV=-0.059
+  upper gate returns: keep n=147 r=-1.008 G=-5.063 | migrate n=60 r=-2.697 G=-7.049
+  upper keep credited components: risk=+0.000 cost=+0.000 disruption=+0.000 sla=-0.517 future_sla=-0.491 failure=+0.000
+  upper migrate credited components: risk=-0.109 cost=-0.203 disruption=-0.370 sla=-0.960 future_sla=-0.531 failure=-0.525
+validation episode=200 sla=0.5927 component_risk=+0.00000 global_risk=+0.00000 sla_gain=+0.0000 keep=1.000 migrations=0.00 feasible=False
